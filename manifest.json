@@ -4,7 +4,7 @@
   "description": "Restaurant operations hub for Angeli's",
   "display": "fullscreen",
   "orientation": "landscape",
-  "start_url": "/index.html",
+  "start_url": "./",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
   "icons": [

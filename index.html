@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Control Tower">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0b0e14">
+  <title>Angeli's Control Tower</title>
+  <style>
+    :root{--bg:#0b0e14;--surface:#141820;--surface2:#1c2130;--border:#252d3d;--accent:#6c63ff;--accent2:#34d399;--text:#e2e8f0;--text-dim:#8892a4;--text-muted:#4a5568;--ph-bg:#111520;--header-h:48px;--ph-h:40px}
+    body.light{--bg:#f5f6fa;--surface:#ffffff;--surface2:#eef0f5;--border:#d8dce8;--accent:#6c63ff;--accent2:#10b981;--text:#1a1d2e;--text-dim:#5a6178;--text-muted:#9ba3b8;--ph-bg:#f0f1f6}
+    body.light #app-header{box-shadow:0 1px 8px rgba(0,0,0,.08)}
+    body.light #grid{background:var(--border)}
+    body.light .launcher{background:var(--bg)}
+    body.light .launcher:active{background:var(--surface2)}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
+    #app-header{height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 max(14px,env(safe-area-inset-left)) 0 max(14px,env(safe-area-inset-right));gap:12px;position:fixed;top:0;left:0;right:0;z-index:100;box-shadow:0 1px 12px rgba(0,0,0,.4)}
+    .brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.3px;white-space:nowrap}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:blink 2.5s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    #clock{margin-left:auto;font-size:13px;color:var(--text-dim);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .header-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+    .layout-group{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+    .layout-btn{padding:4px 10px;font-size:12px;font-weight:700;color:var(--text-dim);background:transparent;border:none;border-right:1px solid var(--border);cursor:pointer;transition:all .12s}
+    .layout-btn:last-child{border-right:none}
+    .layout-btn:hover{background:var(--surface2);color:var(--text)}
+    .layout-btn.active{background:var(--accent);color:#fff}
+    .icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);cursor:pointer;font-size:14px;transition:all .12s}
+    .icon-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent)}
+    #grid{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);display:grid;gap:1px;background:var(--border);overflow-y:auto;overflow-x:hidden;align-content:start}
+    .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
+    .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
+    .panel-header{height:var(--ph-h);background:var(--ph-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px 0 10px;gap:4px;flex-shrink:0;user-select:none}
+    .panel-label{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:var(--text);flex:1;min-width:0}
+    .panel-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .panel-btns{display:flex;gap:1px}
+    .pbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;border-radius:4px;color:var(--text-muted);cursor:pointer;font-size:12px;transition:all .1s}
+    .pbtn:hover{background:var(--surface2);color:var(--text)}
+    .panel-body{flex:1;position:relative;min-height:0}
+    .panel-body iframe{width:100%;height:100%;border:none;display:block}
+    .launcher{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);cursor:pointer;transition:background .1s}
+    .launcher:active{background:var(--surface)}
+    .launcher .l-ico{font-size:54px;line-height:1;pointer-events:none}
+    .launcher .l-name{font-size:17px;font-weight:700;color:var(--text);pointer-events:none}
+    .launcher .l-btn{display:flex;align-items:center;gap:8px;padding:13px 32px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;pointer-events:none;box-shadow:0 4px 16px rgba(108,99,255,.35)}
+    .launcher .l-hint{font-size:11px;color:var(--text-muted);pointer-events:none}
+    .empty-state{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted)}
+    .empty-state .e-ico{font-size:30px;opacity:.4}
+    .empty-state p{font-size:12px}
+    .empty-state .cfg-btn{padding:6px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s}
+    .empty-state .cfg-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .url-bar{position:absolute;top:0;left:0;right:0;background:var(--surface2);border-bottom:2px solid var(--accent);display:flex;gap:6px;padding:5px 8px;z-index:10}
+    .url-bar input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 9px;font-size:12px;outline:none}
+    .url-bar input:focus{border-color:var(--accent)}
+    .url-bar button{padding:5px 11px;border-radius:5px;border:none;font-size:12px;font-weight:600;cursor:pointer}
+    .url-bar .u-save{background:var(--accent);color:#fff}
+    .url-bar .u-cancel{background:var(--surface);border:1px solid var(--border);color:var(--text-dim)}
+    .panel-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--bg);color:var(--text-muted);transition:all .15s}
+    .panel-add:hover{background:var(--surface);color:var(--text-dim)}
+    .panel-add .add-ico{font-size:26px;opacity:.5}
+    .panel-add p{font-size:12px;font-weight:600}
+    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center}
+    #overlay.open{display:flex}
+    #modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(600px,95vw);max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+    .modal-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .modal-head h2{font-size:15px;font-weight:700}
+    .modal-body{padding:16px 18px;overflow-y:auto;flex:1}
+    .section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:10px}
+    .edit-row{display:flex;align-items:center;gap:6px;padding:7px;border:1px solid var(--border);border-radius:8px;margin-bottom:7px;background:var(--bg)}
+    .edit-row input[type=text],.edit-row input[type=url]{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:12px;outline:none}
+    .edit-row input:focus{border-color:var(--accent)}
+    .edit-row .e-emoji{width:40px;text-align:center;font-size:15px}
+    .edit-row .e-name{width:100px}
+    .edit-row .e-url{flex:1}
+    .e-launcher-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+    .e-launcher-wrap label{font-size:9px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    .del-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;border-radius:5px;color:var(--text-muted);cursor:pointer;font-size:12px;flex-shrink:0}
+    .del-btn:hover{background:rgba(127,29,29,.2);color:#fca5a5;border-color:#7f1d1d}
+    .add-row-btn{width:100%;padding:7px;background:transparent;border:1px dashed var(--border);border-radius:8px;color:var(--text-muted);cursor:pointer;font-size:12px;font-weight:600;margin-top:2px;transition:all .12s}
+    .add-row-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .hint-box{margin-top:16px;font-size:12px;color:var(--text-muted);line-height:1.65;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+    .hint-box code{background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--accent);font-family:'SF Mono','Fira Mono',monospace}
+    .hint-box strong{color:var(--text-dim)}
+    .modal-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+    .btn-primary{padding:7px 18px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+    .btn-secondary{padding:7px 18px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-dim);font-size:13px;font-weight:600;cursor:pointer}
+    .btn-secondary:hover{border-color:var(--text-dim)}
+  </style>
+</head>
+<body>
+<header id="app-header">
+  <div class="brand"><span>🗼</span><span>Angeli's Control Tower</span><div class="live-dot"></div></div>
+  <div id="clock"></div>
+  <div class="header-right">
+    <div class="layout-group">
+      <button class="layout-btn" data-cols="2" onclick="setLayout(2)">2</button>
+      <button class="layout-btn" data-cols="3" onclick="setLayout(3)">3</button>
+      <button class="layout-btn" data-cols="4" onclick="setLayout(4)">4</button>
+    </div>
+    <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀️</button>
+    <button class="icon-btn" onclick="openSettings()" title="Manage panels">⚙</button>
+  </div>
+</header>
+<div id="grid"></div>
+<div id="overlay" onclick="backdropClose(event)">
+  <div id="modal">
+    <div class="modal-head">
+      <h2>⚙&nbsp; Manage Panels</h2>
+      <button class="icon-btn" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-label">Panels — check ↗ for apps that block embedding</div>
+      <div id="edit-list"></div>
+      <button class="add-row-btn" onclick="addRow()">＋ Add panel</button>
+      <div class="hint-box">
+        <strong>Launcher mode (↗)</strong> — tap-to-open tile instead of iframe. On iPad, opens native app via deep link.<br><br>
+        <strong>Black screen?</strong><br>
+        • <strong>Scheduler</strong> — run <code>npm run dev</code> in restaurant-scheduler<br>
+        • <strong>Catering / Reservations</strong> — log in once inside the panel<br>
+        • <strong>Gmail / Online Orders</strong> — use launcher mode (on by default)
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+<script>
+const KEY='angeli_tower_v2';
+function defaultLayout(){return window.innerWidth<1280?2:3}
+const DEFAULT_PANELS=[
+  {id:1,emoji:'📅',name:'Schedule',url:'http://localhost:3000',launcher:false},
+  {id:2,emoji:'💰',name:'Tipout',url:'https://vinny4567.github.io/tipout/?v=30',launcher:false},
+  {id:3,emoji:'📧',name:'Gmail',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
+  {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
+  {id:5,emoji:'📆',name:'Reservations',url:'https://angelis-backend.onrender.com/reservations-internal.html',launcher:false},
+  {id:6,emoji:'🛵',name:'Online Orders',url:'https://app.tryotter.com/orders',launcher:true,iosScheme:'tryotter://'},
+];
+function loadCfg(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
+function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
+let cfg=loadCfg(),focused=null,editing=null;
+// Unregister any stale service workers
+if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function tick(){const n=new Date();let h=n.getHours();const m=String(n.getMinutes()).padStart(2,'0'),a=h>=12?'PM':'AM';h=h%12||12;document.getElementById('clock').textContent=`${DAYS[n.getDay()]} ${MONS[n.getMonth()]} ${n.getDate()}  ·  ${h}:${m} ${a}`}
+tick();setInterval(tick,1000);
+function setLayout(n){cfg.layout=n;saveCfg();document.querySelectorAll('.layout-btn').forEach(b=>b.classList.toggle('active',+b.dataset.cols===n));renderGrid()}
+function renderGrid(){const grid=document.getElementById('grid'),cols=cfg.layout,rows=Math.ceil((cfg.panels.length+1)/cols);grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;grid.style.gridTemplateRows=`repeat(${rows},460px)`;grid.innerHTML='';cfg.panels.forEach(p=>grid.appendChild(makePanel(p)));const add=document.createElement('div');add.className='panel panel-add';add.innerHTML='<div class="add-ico">＋</div><p>Add App</p>';add.onclick=openSettings;grid.appendChild(add)}
+function makePanel(p){const el=document.createElement('div');el.className='panel'+(focused===p.id?' is-fullscreen':'');el.id=`panel-${p.id}`;el.innerHTML=`<div class="panel-header"><div class="panel-label"><span title="${esc(p.name)}">${esc(p.name)}</span></div><div class="panel-btns"><button class="pbtn" title="Reload" onclick="doReload(${p.id})">⟳</button><button class="pbtn" title="Open in new tab" onclick="doOpen(${p.id})">↗</button><button class="pbtn" title="Fullscreen" onclick="doFullscreen(${p.id})">${focused===p.id?'⊠':'⤢'}</button><button class="pbtn" title="Set URL" onclick="doUrlEdit(${p.id})">⚙</button></div></div><div class="panel-body" id="body-${p.id}">${bodyHTML(p)}</div>`;return el}
+function bodyHTML(p){const bar=editing===p.id?`<div class="url-bar"><input id="ui-${p.id}" type="url" value="${esc(p.url)}" placeholder="https://…" onkeydown="urlKey(event,${p.id})"><button class="u-save" onclick="urlSave(${p.id})">Save</button><button class="u-cancel" onclick="urlCancel(${p.id})">✕</button></div>`:'';if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return bar+`<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}if(!p.url)return bar+`<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="doUrlEdit(${p.id})">Set URL</button></div>`;return bar+`<iframe src="${esc(p.url)}" allow="fullscreen"></iframe>`}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function doReload(id){const f=document.querySelector(`#body-${id} iframe`);if(f)f.src=f.src}
+function doOpen(id){const p=cfg.panels.find(x=>x.id===id);if(!p)return;const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);if(isIOS&&p.iosScheme){const t=setTimeout(()=>window.open(p.url,'_blank'),600);window.addEventListener('blur',()=>clearTimeout(t),{once:true});window.location.href=p.iosScheme}else if(p.url)window.open(p.url,'_blank');else doUrlEdit(id)}
+function doFullscreen(id){focused=focused===id?null:id;renderGrid()}
+function doUrlEdit(id){editing=editing===id?null:id;refreshBody(id);if(editing===id)setTimeout(()=>{const inp=document.getElementById(`ui-${id}`);if(inp){inp.focus();inp.select()}},30)}
+function refreshBody(id){const p=cfg.panels.find(x=>x.id===id),el=document.getElementById(`body-${id}`);if(p&&el)el.innerHTML=bodyHTML(p)}
+function urlKey(e,id){if(e.key==='Enter')urlSave(id);if(e.key==='Escape')urlCancel(id)}
+function urlSave(id){const inp=document.getElementById(`ui-${id}`);if(!inp)return;const p=cfg.panels.find(x=>x.id===id);if(p){p.url=inp.value.trim();saveCfg()}editing=null;refreshBody(id)}
+function urlCancel(id){editing=null;refreshBody(id)}
+let draft=[];
+function openSettings(){draft=cfg.panels.map(p=>({...p}));renderEditList();document.getElementById('overlay').classList.add('open')}
+function closeSettings(){document.getElementById('overlay').classList.remove('open')}
+function backdropClose(e){if(e.target===document.getElementById('overlay'))closeSettings()}
+function renderEditList(){document.getElementById('edit-list').innerHTML=draft.map(p=>`<div class="edit-row"><input class="e-emoji" type="text" value="${esc(p.emoji)}" placeholder="📊" oninput="ud(${p.id},'emoji',this.value)"><input class="e-name" type="text" value="${esc(p.name)}" placeholder="App name" oninput="ud(${p.id},'name',this.value)"><input class="e-url" type="url" value="${esc(p.url)}" placeholder="https://…" oninput="ud(${p.id},'url',this.value)"><div class="e-launcher-wrap"><input type="checkbox" id="lch-${p.id}" ${p.launcher?'checked':''} onchange="ud(${p.id},'launcher',this.checked)"><label for="lch-${p.id}">↗</label></div><button class="del-btn" onclick="deleteRow(${p.id})" title="Remove">✕</button></div>`).join('')}
+function ud(id,field,val){const p=draft.find(x=>x.id===id);if(p)p[field]=val}
+function deleteRow(id){draft=draft.filter(p=>p.id!==id);renderEditList()}
+function addRow(){const newId=Math.max(0,...draft.map(p=>p.id))+1;draft.push({id:newId,emoji:'🔗',name:'',url:'',launcher:false});renderEditList();setTimeout(()=>{const rows=document.querySelectorAll('.edit-row');if(rows.length)rows[rows.length-1].querySelector('.e-name')?.focus()},40)}
+function saveSettings(){cfg.panels=draft.filter(p=>p.name||p.url);saveCfg();closeSettings();renderGrid()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('overlay').classList.contains('open'))closeSettings();else if(focused!==null){focused=null;renderGrid()}}});
+document.querySelectorAll('.layout-btn').forEach(b=>b.classList.toggle('active',+b.dataset.cols===cfg.layout));
+// ── THEME ─────────────────────────────────────────────────────────
+function applyTheme(light){document.body.classList.toggle('light',light);document.getElementById('theme-btn').textContent=light?'🌙':'☀️';document.querySelector('meta[name="theme-color"]').setAttribute('content',light?'#f5f6fa':'#0b0e14')}
+function toggleTheme(){const light=!document.body.classList.contains('light');localStorage.setItem('angeli_tower_theme',light?'light':'dark');applyTheme(light)}
+applyTheme(localStorage.getItem('angeli_tower_theme')==='light');
+renderGrid();
+</script>
+</body>
+</html>

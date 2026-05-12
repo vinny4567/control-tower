@@ -32,7 +32,18 @@
     .layout-btn.active{background:var(--accent);color:#fff}
     .icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);cursor:pointer;font-size:14px;transition:all .12s}
     .icon-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent)}
-    #grid{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);display:grid;gap:1px;background:var(--border);overflow-y:auto;overflow-x:hidden;align-content:start}
+    #tab-bar{position:fixed;top:var(--header-h);left:0;right:0;height:46px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch;z-index:90;box-shadow:0 1px 6px rgba(0,0,0,.2)}
+    .tab-list{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .tab-list::-webkit-scrollbar{display:none}
+    .tab{padding:0 20px;display:flex;align-items:center;font-size:14px;font-weight:600;color:var(--text-dim);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .15s;user-select:none;-webkit-tap-highlight-color:transparent}
+    .tab:hover{color:var(--text);background:var(--surface2)}
+    .tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--bg)}
+    body.light .tab.active{background:var(--surface2)}
+    .tab-add{padding:0 18px;color:var(--text-muted);font-size:18px;font-weight:400}
+    .tab-actions{display:flex;align-items:center;padding:0 8px;gap:2px;border-left:1px solid var(--border)}
+    #viewport{position:fixed;top:calc(var(--header-h) + 46px);left:0;right:0;bottom:env(safe-area-inset-bottom,0);background:var(--bg);overflow:hidden}
+    #viewport iframe{width:100%;height:100%;border:none;display:block}
+    #viewport .launcher,#viewport .empty-state{width:100%;height:100%}
     .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
     .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
     .panel-header{height:var(--ph-h);background:var(--ph-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px 0 10px;gap:4px;flex-shrink:0;user-select:none}
@@ -97,16 +108,18 @@
   <div class="brand"><span>🗼</span><span>Angeli's Control Tower</span><div class="live-dot"></div></div>
   <div id="clock"></div>
   <div class="header-right">
-    <div class="layout-group">
-      <button class="layout-btn" data-cols="2" onclick="setLayout(2)">2</button>
-      <button class="layout-btn" data-cols="3" onclick="setLayout(3)">3</button>
-      <button class="layout-btn" data-cols="4" onclick="setLayout(4)">4</button>
-    </div>
     <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀️</button>
     <button class="icon-btn" onclick="openSettings()" title="Manage panels">⚙</button>
   </div>
 </header>
-<div id="grid"></div>
+<nav id="tab-bar">
+  <div class="tab-list" id="tab-list"></div>
+  <div class="tab-actions">
+    <button class="pbtn" onclick="reloadActive()" title="Reload">⟳</button>
+    <button class="pbtn" onclick="popoutActive()" title="Open in new tab">↗</button>
+  </div>
+</nav>
+<div id="viewport"></div>
 <div id="overlay" onclick="backdropClose(event)">
   <div id="modal">
     <div class="modal-head">
@@ -144,16 +157,19 @@ const DEFAULT_PANELS=[
 ];
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
-let cfg=loadCfg(),focused=null,editing=null;
+let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||cfg.panels[0]?.id;
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function tick(){const n=new Date();let h=n.getHours();const m=String(n.getMinutes()).padStart(2,'0'),a=h>=12?'PM':'AM';h=h%12||12;document.getElementById('clock').textContent=`${DAYS[n.getDay()]} ${MONS[n.getMonth()]} ${n.getDate()}  ·  ${h}:${m} ${a}`}
 tick();setInterval(tick,1000);
-function setLayout(n){cfg.layout=n;saveCfg();document.querySelectorAll('.layout-btn').forEach(b=>b.classList.toggle('active',+b.dataset.cols===n));renderGrid()}
-function renderGrid(){const grid=document.getElementById('grid'),cols=cfg.layout,rows=Math.ceil((cfg.panels.length+1)/cols);grid.style.gridTemplateColumns=`repeat(${cols},1fr)`;grid.style.gridTemplateRows=`repeat(${rows},460px)`;grid.innerHTML='';cfg.panels.forEach(p=>grid.appendChild(makePanel(p)));const add=document.createElement('div');add.className='panel panel-add';add.innerHTML='<div class="add-ico">＋</div><p>Add App</p>';add.onclick=openSettings;grid.appendChild(add)}
-function makePanel(p){const el=document.createElement('div');el.className='panel'+(focused===p.id?' is-fullscreen':'');el.id=`panel-${p.id}`;el.innerHTML=`<div class="panel-header"><div class="panel-label"><span title="${esc(p.name)}">${esc(p.name)}</span></div><div class="panel-btns"><button class="pbtn" title="Reload" onclick="doReload(${p.id})">⟳</button><button class="pbtn" title="Open in new tab" onclick="doOpen(${p.id})">↗</button><button class="pbtn" title="Fullscreen" onclick="doFullscreen(${p.id})">${focused===p.id?'⊠':'⤢'}</button><button class="pbtn" title="Set URL" onclick="doUrlEdit(${p.id})">⚙</button></div></div><div class="panel-body" id="body-${p.id}">${bodyHTML(p)}</div>`;return el}
-function bodyHTML(p){const bar=editing===p.id?`<div class="url-bar"><input id="ui-${p.id}" type="url" value="${esc(p.url)}" placeholder="https://…" onkeydown="urlKey(event,${p.id})"><button class="u-save" onclick="urlSave(${p.id})">Save</button><button class="u-cancel" onclick="urlCancel(${p.id})">✕</button></div>`:'';if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return bar+`<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}if(!p.url)return bar+`<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="doUrlEdit(${p.id})">Set URL</button></div>`;return bar+`<iframe src="${esc(p.url)}" allow="fullscreen"></iframe>`}
+function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
+function renderViewport(){const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p)}
+function renderAll(){renderTabs();renderViewport()}
+function switchTab(id){activeTab=id;cfg.activeTab=id;saveCfg();renderAll()}
+function reloadActive(){const f=document.querySelector('#viewport iframe');if(f)f.src=f.src}
+function popoutActive(){doOpen(activeTab)}
+function bodyHTML(p){if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;return `<iframe src="${esc(p.url)}" allow="fullscreen"></iframe>`}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function doReload(id){const f=document.querySelector(`#body-${id} iframe`);if(f)f.src=f.src}
 function doOpen(id){const p=cfg.panels.find(x=>x.id===id);if(!p)return;const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);if(isIOS&&p.iosScheme){const t=setTimeout(()=>window.open(p.url,'_blank'),600);window.addEventListener('blur',()=>clearTimeout(t),{once:true});window.location.href=p.iosScheme}else if(p.url)window.open(p.url,'_blank');else doUrlEdit(id)}
@@ -171,14 +187,13 @@ function renderEditList(){document.getElementById('edit-list').innerHTML=draft.m
 function ud(id,field,val){const p=draft.find(x=>x.id===id);if(p)p[field]=val}
 function deleteRow(id){draft=draft.filter(p=>p.id!==id);renderEditList()}
 function addRow(){const newId=Math.max(0,...draft.map(p=>p.id))+1;draft.push({id:newId,emoji:'🔗',name:'',url:'',launcher:false});renderEditList();setTimeout(()=>{const rows=document.querySelectorAll('.edit-row');if(rows.length)rows[rows.length-1].querySelector('.e-name')?.focus()},40)}
-function saveSettings(){cfg.panels=draft.filter(p=>p.name||p.url);saveCfg();closeSettings();renderGrid()}
+function saveSettings(){cfg.panels=draft.filter(p=>p.name||p.url);if(!cfg.panels.find(p=>p.id===activeTab))activeTab=cfg.panels[0]?.id;saveCfg();closeSettings();renderAll()}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('overlay').classList.contains('open'))closeSettings();else if(focused!==null){focused=null;renderGrid()}}});
-document.querySelectorAll('.layout-btn').forEach(b=>b.classList.toggle('active',+b.dataset.cols===cfg.layout));
 // ── THEME ─────────────────────────────────────────────────────────
 function applyTheme(light){document.body.classList.toggle('light',light);document.getElementById('theme-btn').textContent=light?'🌙':'☀️';document.querySelector('meta[name="theme-color"]').setAttribute('content',light?'#f5f6fa':'#0b0e14')}
 function toggleTheme(){const light=!document.body.classList.contains('light');localStorage.setItem('angeli_tower_theme',light?'light':'dark');applyTheme(light)}
 applyTheme(localStorage.getItem('angeli_tower_theme')==='light');
-renderGrid();
+renderAll();
 </script>
 </body>
 </html>

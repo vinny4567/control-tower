@@ -302,7 +302,7 @@ function initGmail(){
   });
   if(gmailValid()){fetchGmailProfile();fetchGmail();startGmailPolling()}
 }
-function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken()}
+function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken({prompt:'consent'})}
 function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
 function parseSender(from){const m=from.match(/^"?([^"<]*)"?\s*<.+>$/);return m?m[1].trim():from.split('@')[0]||from}
 function relTime(ts){const d=Date.now()-ts,min=Math.floor(d/60000);if(min<1)return 'now';if(min<60)return min+'m';const h=Math.floor(min/60);if(h<24)return h+'h';const dy=Math.floor(h/24);return dy+'d'}

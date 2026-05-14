@@ -228,9 +228,12 @@ const DEFAULT_PANELS=[
   {id:3,emoji:'📧',name:'Gmail',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
   {id:5,emoji:'📆',name:'Reservations',url:'https://angelis-backend.onrender.com/reservations-internal.html',launcher:false},
-  {id:6,emoji:'🛵',name:'Online Orders',url:'https://app.tryotter.com/orders',launcher:true,iosScheme:'tryotter://'},
+  {id:6,emoji:'🛵',name:'Online Orders',url:'https://app.tryotter.com/orders',launcher:false,iosScheme:'tryotter://'},
 ];
-function loadCfg(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
+function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
+  // Migration: flip Online Orders from launcher to iframe to test embedding
+  const oo=c.panels?.find(p=>p.id===6);if(oo&&oo.launcher===true&&(oo.url||'').includes('tryotter.com'))oo.launcher=false;
+  return c}}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
 const DASH='dashboard';
 let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
@@ -389,20 +392,6 @@ function dashboardHTML(){
           <div class="dc-row"><span class="dc-row-label">DoorDash</span><span class="dc-row-val">21</span></div>
           <div class="dc-row"><span class="dc-row-label">UberEats</span><span class="dc-row-val">14</span></div>
           <div class="dc-row"><span class="dc-row-label">Grubhub</span><span class="dc-row-val">7</span></div>
-        </div>
-        <div class="dash-card">
-          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">💰</span>Tips Today</div></div>
-          <div class="dc-value">$342</div>
-          <div class="dc-sub">4 servers · avg <strong style="color:var(--text)">$85.50</strong> each</div>
-          <div class="dc-row"><span class="dc-row-label">Cash</span><span class="dc-row-val">$118</span></div>
-          <div class="dc-row"><span class="dc-row-label">Card</span><span class="dc-row-val">$224</span></div>
-        </div>
-        <div class="dash-card">
-          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">🌤️</span>Tonight</div></div>
-          <div class="dc-value">68°</div>
-          <div class="dc-sub">Clear · light breeze · <strong style="color:var(--text)">good walk-in weather</strong></div>
-          <div class="dc-row"><span class="dc-row-label">Sunset</span><span class="dc-row-val">8:14 PM</span></div>
-          <div class="dc-row"><span class="dc-row-label">Tomorrow</span><span class="dc-row-val">72° · sunny</span></div>
         </div>
       </div>
     </div>

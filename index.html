@@ -262,7 +262,7 @@
 const KEY='angeli_tower_v2';
 function defaultLayout(){return window.innerWidth<1280?2:3}
 const DEFAULT_PANELS=[
-  {id:1,emoji:'📅',name:'Schedule',url:'http://localhost:3000',launcher:false},
+  {id:1,emoji:'📅',name:'Schedule',url:'https://restaurant-scheduler-hh5e.onrender.com/login',launcher:false},
   {id:2,emoji:'💰',name:'Tipout',url:'https://vinny4567.github.io/tipout/?v=30',launcher:false},
   {id:3,emoji:'📧',name:'Gmail',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
@@ -272,6 +272,8 @@ const DEFAULT_PANELS=[
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
   // Migration: flip Online Orders from launcher to iframe to test embedding
   const oo=c.panels?.find(p=>p.id===6);if(oo&&oo.launcher===true&&(oo.url||'').includes('tryotter.com'))oo.launcher=false;
+  // Migration: update Schedule URL from localhost to deployed Render URL
+  const sch=c.panels?.find(p=>p.id===1);if(sch&&(sch.url||'').includes('localhost'))sch.url='https://restaurant-scheduler-hh5e.onrender.com/login';
   return c}}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
 const DASH='dashboard';

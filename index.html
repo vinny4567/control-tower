@@ -85,6 +85,38 @@
     .signin-btn::before{content:'';width:18px;height:18px;flex-shrink:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E");background-size:contain;background-repeat:no-repeat}
     .signout-link{font-size:11px;color:var(--text-muted);cursor:pointer;text-decoration:underline;padding:8px 18px;text-align:right;display:block}
     .signout-link:hover{color:var(--text-dim)}
+    /* Gmail tab mailbox */
+    .gmail-mailbox{width:100%;height:100%;display:flex;flex-direction:column;background:var(--bg)}
+    .gmail-toolbar{height:50px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
+    .gmail-title{font-size:16px;font-weight:700;flex:1;color:var(--text)}
+    .gmail-back{background:transparent;border:none;color:var(--accent);cursor:pointer;font-size:14px;font-weight:600;padding:8px 12px;margin-left:-8px;border-radius:6px}
+    .gmail-back:hover{background:var(--surface2)}
+    .gmail-refresh{background:transparent;border:1px solid var(--border);width:32px;height:32px;border-radius:8px;cursor:pointer;color:var(--text-dim);font-size:14px;display:flex;align-items:center;justify-content:center}
+    .gmail-refresh:hover{background:var(--surface2);color:var(--text)}
+    .gmail-list-tab{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .gmail-row{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
+    .gmail-row:hover{background:var(--surface)}
+    .gmail-row.unread{background:rgba(108,99,255,.05)}
+    .gmail-row.unread .gmail-row-sender{color:var(--accent);font-weight:700}
+    .gmail-row.unread .gmail-row-subject{color:var(--text);font-weight:700}
+    .gmail-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+    .gmail-row-sender{font-size:14px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
+    .gmail-row-time{font-size:12px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+    .gmail-row-subject{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+    .gmail-row-snippet{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .gmail-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+    .gmail-detail-head{padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+    .gmail-detail-subject{font-size:20px;font-weight:700;line-height:1.3;color:var(--text);margin-bottom:10px}
+    .gmail-detail-meta{font-size:13px;color:var(--text)}
+    .gmail-detail-meta strong{color:var(--text);font-weight:700}
+    .gmail-detail-date{font-size:12px;color:var(--text-muted);margin-top:3px}
+    .gmail-body{flex:1;width:100%;border:none;background:#fff;min-height:0}
+    .gmail-loading,.gmail-empty{padding:60px 24px;text-align:center;color:var(--text-muted);font-size:14px}
+    .gmail-signin{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+    .gmail-signin-card{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:360px;text-align:center}
+    .gmail-signin-card .gs-ico{font-size:40px;line-height:1}
+    .gmail-signin-card h2{font-size:18px;font-weight:700;color:var(--text);margin:0}
+    .gmail-signin-card p{font-size:13px;color:var(--text-dim);margin:0;line-height:1.5}
     .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
     .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
     .panel-header{height:var(--ph-h);background:var(--ph-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px 0 10px;gap:4px;flex-shrink:0;user-select:none}
@@ -253,6 +285,66 @@ async function fetchGmail(){
 }
 setInterval(()=>{if(gmailValid()&&activeTab===DASH)fetchGmail()},60000);
 window.addEventListener('load',()=>initGmail());
+
+// ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
+let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false};
+function findPart(part,mime){if(part.mimeType===mime&&part.body?.data)return part;if(part.parts)for(const p of part.parts){const r=findPart(p,mime);if(r)return r}return null}
+function decodeB64(s){try{return atob((s||'').replace(/-/g,'+').replace(/_/g,'/'))}catch(e){return ''}}
+function extractBody(msg){const h=findPart(msg.payload,'text/html');if(h)return decodeB64(h.body.data);const t=findPart(msg.payload,'text/plain');if(t){const text=decodeB64(t.body.data);return '<pre style="white-space:pre-wrap;font-family:-apple-system,sans-serif;font-size:14px;color:#222;padding:18px;margin:0">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'}return '<div style="padding:24px;color:#888;font-family:-apple-system,sans-serif">(no content)</div>'}
+async function loadGmailTab(){
+  if(!gmailValid()||gmailTab.loading)return;
+  gmailTab.loading=true;
+  if(activeTab===3)renderViewport();
+  try{
+    const auth={Authorization:'Bearer '+gmailToken.token};
+    const listRes=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&labelIds=INBOX',{headers:auth});
+    if(listRes.status===401){gmailClearToken();gmailTab.loading=false;if(activeTab===3)renderViewport();return}
+    if(!listRes.ok)throw new Error('list '+listRes.status);
+    const list=await listRes.json();
+    if(!list.messages){gmailTab.emails=[];gmailTab.loading=false;if(activeTab===3)renderViewport();return}
+    const results=await Promise.all(list.messages.map(async m=>{
+      const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,{headers:auth});
+      if(!r.ok)return null;
+      const msg=await r.json();
+      const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
+      return {id:m.id,sender:parseSender(hdr.From||'(unknown)'),from:hdr.From||'',subject:hdr.Subject||'(no subject)',date:hdr.Date||'',snippet:msg.snippet||'',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false}
+    }));
+    gmailTab.emails=results.filter(Boolean);
+  }catch(e){console.error('gmail tab fetch',e)}
+  gmailTab.loading=false;
+  if(activeTab===3)renderViewport();
+}
+async function selectEmail(id){
+  gmailTab.selectedId=id;gmailTab.selectedEmail=null;gmailTab.loadingDetail=true;
+  if(activeTab===3)renderViewport();
+  try{
+    const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,{headers:{Authorization:'Bearer '+gmailToken.token}});
+    if(r.ok){
+      const msg=await r.json();
+      const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
+      gmailTab.selectedEmail={id,subject:hdr.Subject||'(no subject)',from:hdr.From||'',date:hdr.Date||'',body:extractBody(msg)};
+      // Mark as read in our local cache
+      const e=gmailTab.emails?.find(x=>x.id===id);if(e)e.unread=false;
+    }
+  }catch(e){console.error('gmail detail',e)}
+  gmailTab.loadingDetail=false;
+  if(activeTab===3)renderViewport();
+}
+function closeEmail(){gmailTab.selectedId=null;gmailTab.selectedEmail=null;if(activeTab===3)renderViewport()}
+function gmailMailboxHTML(){
+  if(!gmailValid()){return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`}
+  if(gmailTab.loadingDetail){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><button class="gmail-back" onclick="closeEmail()">← Inbox</button></div><div class="gmail-loading">Loading email…</div></div>`}
+  if(gmailTab.selectedEmail){
+    const e=gmailTab.selectedEmail;
+    const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<div class="gmail-mailbox"><div class="gmail-toolbar"><button class="gmail-back" onclick="closeEmail()">← Inbox</button></div><div class="gmail-detail"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}</div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div></div>`;
+  }
+  if(gmailTab.emails===null){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><span class="gmail-title">Inbox</span></div><div class="gmail-loading">Loading inbox…</div></div>`}
+  if(gmailTab.emails.length===0){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><span class="gmail-title">Inbox</span><button class="gmail-refresh" onclick="loadGmailTab()">⟳</button></div><div class="gmail-empty">No emails in inbox.</div></div>`}
+  const unreadCount=gmailTab.emails.filter(e=>e.unread).length;
+  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="gmail-row-time">${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
+  return `<div class="gmail-mailbox"><div class="gmail-toolbar"><span class="gmail-title">Inbox${unreadCount?` · <span style="color:var(--accent)">${unreadCount} new</span>`:''}</span><button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div></div>`;
+}
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -317,10 +409,16 @@ function dashboardHTML(){
   `;
 }
 function renderAll(){renderTabs();renderViewport()}
-function switchTab(id){activeTab=id;cfg.activeTab=id;saveCfg();renderAll()}
+function switchTab(id){activeTab=id;cfg.activeTab=id;saveCfg();renderAll();if(id===3&&gmailValid()&&gmailTab.emails===null&&!gmailTab.loading)loadGmailTab()}
 function reloadActive(){const f=document.querySelector('#viewport iframe');if(f)f.src=f.src}
 function popoutActive(){doOpen(activeTab)}
-function bodyHTML(p){if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;return `<iframe src="${esc(p.url)}" allow="fullscreen"></iframe>`}
+function bodyHTML(p){
+  // Special: Gmail panel renders a real inbox UI powered by Gmail API
+  if(p.id===3||(p.url||'').includes('mail.google.com')){return gmailMailboxHTML()}
+  if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}
+  if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;
+  return `<iframe src="${esc(p.url)}" allow="fullscreen"></iframe>`
+}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function doReload(id){const f=document.querySelector(`#body-${id} iframe`);if(f)f.src=f.src}
 function doOpen(id){const p=cfg.panels.find(x=>x.id===id);if(!p)return;const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);if(isIOS&&p.iosScheme){const t=setTimeout(()=>window.open(p.url,'_blank'),600);window.addEventListener('blur',()=>clearTimeout(t),{once:true});window.location.href=p.iosScheme}else if(p.url)window.open(p.url,'_blank');else doUrlEdit(id)}
@@ -354,6 +452,8 @@ function applyTheme(light){document.body.classList.toggle('light',light);documen
 function toggleTheme(){const light=!document.body.classList.contains('light');localStorage.setItem('angeli_tower_theme',light?'light':'dark');applyTheme(light)}
 applyTheme(localStorage.getItem('angeli_tower_theme')==='light');
 renderAll();
+// After Gmail SDK loads, also preload inbox if Gmail tab is active
+window.addEventListener('load',()=>{setTimeout(()=>{if(activeTab===3&&gmailValid()&&gmailTab.emails===null)loadGmailTab()},800)});
 </script>
 </body>
 </html>

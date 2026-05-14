@@ -117,6 +117,34 @@
     .gmail-signin-card .gs-ico{font-size:40px;line-height:1}
     .gmail-signin-card h2{font-size:18px;font-weight:700;color:var(--text);margin:0}
     .gmail-signin-card p{font-size:13px;color:var(--text-dim);margin:0;line-height:1.5}
+    /* Two-pane on wide screens */
+    .gmail-2pane{display:flex;flex-direction:row;height:100%;width:100%}
+    .gmail-2pane .gmail-list-pane{width:360px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+    .gmail-2pane .gmail-detail-pane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+    .gmail-2pane .gmail-list-tab{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .gmail-2pane .gmail-row.selected{background:var(--surface2)}
+    .gmail-empty-detail{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:14px;padding:24px;text-align:center}
+    /* Detail/reply area */
+    .gmail-detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;display:flex;flex-direction:column}
+    .gmail-body{flex:1;width:100%;border:none;background:#fff;min-height:400px}
+    .gmail-actions{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap}
+    .gmail-action-btn{padding:9px 18px;background:var(--accent);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;-webkit-tap-highlight-color:transparent}
+    .gmail-action-btn:hover{opacity:.9}
+    .gmail-action-btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+    .gmail-action-btn.secondary:hover{border-color:var(--text-dim);color:var(--text)}
+    .gmail-action-btn.danger{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+    .gmail-action-btn.danger:hover{border-color:#dc2626;color:#fca5a5}
+    .gmail-compose{padding:14px 16px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+    .gmail-compose-to{font-size:12px;color:var(--text-dim);margin-bottom:8px}
+    .gmail-compose-to strong{color:var(--text);font-weight:600}
+    .gmail-compose textarea{width:100%;min-height:120px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14px;color:var(--text);resize:vertical;outline:none;line-height:1.5}
+    .gmail-compose textarea:focus{border-color:var(--accent)}
+    .gmail-compose-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px}
+    .gmail-compose-status{font-size:12px;color:var(--text-muted)}
+    .gmail-compose-status.error{color:#f87171}
+    .gmail-compose-status.success{color:var(--accent2)}
+    /* User chip in toolbar */
+    .gmail-user{font-size:12px;color:var(--text-muted);padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
     .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
     .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
     .panel-header{height:var(--ph-h);background:var(--ph-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px 0 10px;gap:4px;flex-shrink:0;user-select:none}
@@ -240,12 +268,14 @@ let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
 
 // ── GMAIL ─────────────────────────────────────────────────────────
 const GMAIL_CLIENT_ID='513963645116-3sv5cf73n7pdvd41as25fp1e1gljqdms.apps.googleusercontent.com';
-const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.readonly';
-let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token')||'null')}catch(e){}
+const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send';
+let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token_v3')||'null')}catch(e){}
+let gmailUserEmail=null;
 let gmailEmails=null,gmailLoading=false,gmailTokenClient=null;
 function gmailValid(){return gmailToken&&gmailToken.expires>Date.now()+30000}
-function gmailSaveToken(t){gmailToken=t;localStorage.setItem('gmail_token',JSON.stringify(t))}
-function gmailClearToken(){gmailToken=null;gmailEmails=null;localStorage.removeItem('gmail_token')}
+function gmailSaveToken(t){gmailToken=t;localStorage.setItem('gmail_token_v3',JSON.stringify(t))}
+function gmailClearToken(){gmailToken=null;gmailEmails=null;gmailUserEmail=null;localStorage.removeItem('gmail_token_v3');localStorage.removeItem('gmail_token')}
+async function fetchGmailProfile(){if(!gmailValid())return;try{const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile',{headers:{Authorization:'Bearer '+gmailToken.token}});if(r.ok){const p=await r.json();gmailUserEmail=p.emailAddress}}catch(e){}}
 function initGmail(){
   if(!window.google?.accounts?.oauth2){setTimeout(initGmail,200);return}
   gmailTokenClient=google.accounts.oauth2.initTokenClient({
@@ -254,10 +284,10 @@ function initGmail(){
     callback:(resp)=>{
       if(resp.error){console.error('gmail auth error',resp);return}
       gmailSaveToken({token:resp.access_token,expires:Date.now()+(resp.expires_in||3600)*1000});
-      fetchGmail();
+      fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();
     }
   });
-  if(gmailValid())fetchGmail();
+  if(gmailValid()){fetchGmailProfile();fetchGmail()}
 }
 function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken()}
 function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
@@ -290,7 +320,7 @@ setInterval(()=>{if(gmailValid()&&activeTab===DASH)fetchGmail()},60000);
 window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
-let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false};
+let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false,composing:null,sendStatus:null};
 function findPart(part,mime){if(part.mimeType===mime&&part.body?.data)return part;if(part.parts)for(const p of part.parts){const r=findPart(p,mime);if(r)return r}return null}
 function decodeB64(s){try{return atob((s||'').replace(/-/g,'+').replace(/_/g,'/'))}catch(e){return ''}}
 function extractBody(msg){const h=findPart(msg.payload,'text/html');if(h)return decodeB64(h.body.data);const t=findPart(msg.payload,'text/plain');if(t){const text=decodeB64(t.body.data);return '<pre style="white-space:pre-wrap;font-family:-apple-system,sans-serif;font-size:14px;color:#222;padding:18px;margin:0">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'}return '<div style="padding:24px;color:#888;font-family:-apple-system,sans-serif">(no content)</div>'}
@@ -318,35 +348,87 @@ async function loadGmailTab(){
   if(activeTab===3)renderViewport();
 }
 async function selectEmail(id){
-  gmailTab.selectedId=id;gmailTab.selectedEmail=null;gmailTab.loadingDetail=true;
+  gmailTab.selectedId=id;gmailTab.selectedEmail=null;gmailTab.loadingDetail=true;gmailTab.composing=null;gmailTab.sendStatus=null;
   if(activeTab===3)renderViewport();
   try{
     const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,{headers:{Authorization:'Bearer '+gmailToken.token}});
     if(r.ok){
       const msg=await r.json();
       const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
-      gmailTab.selectedEmail={id,subject:hdr.Subject||'(no subject)',from:hdr.From||'',date:hdr.Date||'',body:extractBody(msg)};
-      // Mark as read in our local cache
-      const e=gmailTab.emails?.find(x=>x.id===id);if(e)e.unread=false;
+      gmailTab.selectedEmail={id,threadId:msg.threadId,messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',subject:hdr.Subject||'(no subject)',from:hdr.From||'',to:hdr.To||'',date:hdr.Date||'',body:extractBody(msg)};
+      const e=gmailTab.emails?.find(x=>x.id===id);if(e&&e.unread){e.unread=false;markRead(id)}
     }
   }catch(e){console.error('gmail detail',e)}
   gmailTab.loadingDetail=false;
   if(activeTab===3)renderViewport();
 }
+async function markRead(id){try{await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['UNREAD']})})}catch(e){}}
+async function archiveEmail(id){if(!confirm('Archive this email?'))return;try{const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['INBOX']})});if(r.ok){gmailTab.emails=gmailTab.emails?.filter(e=>e.id!==id);closeEmail()}}catch(e){alert('Archive failed: '+e.message)}}
+async function trashEmail(id){if(!confirm('Move to Trash?'))return;try{const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token}});if(r.ok){gmailTab.emails=gmailTab.emails?.filter(e=>e.id!==id);closeEmail()}}catch(e){alert('Trash failed: '+e.message)}}
+function startReply(){gmailTab.composing='reply';gmailTab.sendStatus=null;if(activeTab===3)renderViewport();setTimeout(()=>{const t=document.getElementById('compose-textarea');if(t)t.focus()},50)}
+function startForward(){gmailTab.composing='forward';gmailTab.sendStatus=null;if(activeTab===3)renderViewport();setTimeout(()=>{const t=document.getElementById('compose-textarea');if(t)t.focus()},50)}
+function cancelCompose(){gmailTab.composing=null;gmailTab.sendStatus=null;if(activeTab===3)renderViewport()}
+function b64url(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+async function sendCompose(){
+  const t=document.getElementById('compose-textarea');if(!t)return;
+  const body=t.value.trim();if(!body){t.focus();return}
+  const fwdTo=gmailTab.composing==='forward'?document.getElementById('compose-fwd-to')?.value?.trim():null;
+  if(gmailTab.composing==='forward'&&!fwdTo){alert('Enter a recipient email address');return}
+  const e=gmailTab.selectedEmail;if(!e)return;
+  const isReply=gmailTab.composing==='reply';
+  const to=isReply?e.from:fwdTo;
+  const baseSubject=e.subject.replace(/^(Re:|Fwd:)\s*/i,'').trim();
+  const subject=isReply?'Re: '+baseSubject:'Fwd: '+baseSubject;
+  const from=gmailUserEmail||'';
+  const quotedBody=isReply?`\n\n--- Original message from ${e.from} on ${e.date} ---\n${e.body.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').substring(0,2000)}`:`\n\n--- Forwarded message from ${e.from} on ${e.date} ---\nSubject: ${e.subject}\nTo: ${e.to}\n\n${e.body.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').substring(0,2000)}`;
+  const headers=[`From: ${from}`,`To: ${to}`,`Subject: ${subject}`,'Content-Type: text/plain; charset=UTF-8','MIME-Version: 1.0'];
+  if(isReply&&e.messageIdHeader){headers.push(`In-Reply-To: ${e.messageIdHeader}`);headers.push(`References: ${e.messageIdHeader}`)}
+  const mime=headers.join('\r\n')+'\r\n\r\n'+body+quotedBody;
+  const raw=b64url(mime);
+  const sendBody={raw};if(isReply&&e.threadId)sendBody.threadId=e.threadId;
+  gmailTab.sendStatus={text:'Sending…',kind:'info'};if(activeTab===3)renderViewport();
+  try{
+    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify(sendBody)});
+    if(r.ok){gmailTab.sendStatus={text:'Sent ✓',kind:'success'};setTimeout(()=>cancelCompose(),1200)}
+    else{const err=await r.text();gmailTab.sendStatus={text:'Send failed: '+r.status,kind:'error'};console.error(err)}
+  }catch(err){gmailTab.sendStatus={text:'Send failed: '+err.message,kind:'error'}}
+  if(activeTab===3)renderViewport();
+}
 function closeEmail(){gmailTab.selectedId=null;gmailTab.selectedEmail=null;if(activeTab===3)renderViewport()}
 function gmailMailboxHTML(){
-  if(!gmailValid()){return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`}
-  if(gmailTab.loadingDetail){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><button class="gmail-back" onclick="closeEmail()">← Inbox</button></div><div class="gmail-loading">Loading email…</div></div>`}
-  if(gmailTab.selectedEmail){
-    const e=gmailTab.selectedEmail;
-    const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    return `<div class="gmail-mailbox"><div class="gmail-toolbar"><button class="gmail-back" onclick="closeEmail()">← Inbox</button></div><div class="gmail-detail"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}</div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div></div>`;
+  if(!gmailValid()){return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`}
+  const wide=window.innerWidth>=900;
+  // Single-pane mode (narrow screens / portrait) — old behavior
+  if(!wide){
+    if(gmailTab.loadingDetail){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><button class="gmail-back" onclick="closeEmail()">← Inbox</button></div><div class="gmail-loading">Loading…</div></div>`}
+    if(gmailTab.selectedEmail)return `<div class="gmail-mailbox"><div class="gmail-toolbar"><button class="gmail-back" onclick="closeEmail()">← Inbox</button></div>${gmailDetailHTML(true)}</div>`;
+    return `<div class="gmail-mailbox">${gmailListHTML(false)}</div>`;
   }
-  if(gmailTab.emails===null){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><span class="gmail-title">Inbox</span></div><div class="gmail-loading">Loading inbox…</div></div>`}
-  if(gmailTab.emails.length===0){return `<div class="gmail-mailbox"><div class="gmail-toolbar"><span class="gmail-title">Inbox</span><button class="gmail-refresh" onclick="loadGmailTab()">⟳</button></div><div class="gmail-empty">No emails in inbox.</div></div>`}
-  const unreadCount=gmailTab.emails.filter(e=>e.unread).length;
-  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="gmail-row-time">${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
-  return `<div class="gmail-mailbox"><div class="gmail-toolbar"><span class="gmail-title">Inbox${unreadCount?` · <span style="color:var(--accent)">${unreadCount} new</span>`:''}</span><button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div></div>`;
+  // Two-pane mode (iPad landscape / desktop)
+  return `<div class="gmail-mailbox"><div class="gmail-2pane">
+    <div class="gmail-list-pane">${gmailListHTML(true)}</div>
+    <div class="gmail-detail-pane">${gmailTab.selectedEmail?gmailDetailHTML(false):gmailTab.loadingDetail?'<div class="gmail-loading">Loading email…</div>':'<div class="gmail-empty-detail">Select an email to read</div>'}</div>
+  </div></div>`;
+}
+function gmailListHTML(forTwoPane){
+  if(gmailTab.emails===null)return `<div class="gmail-toolbar"><span class="gmail-title">Inbox</span></div><div class="gmail-loading">Loading inbox…</div>`;
+  if(gmailTab.emails.length===0)return `<div class="gmail-toolbar"><span class="gmail-title">Inbox</span><button class="gmail-refresh" onclick="loadGmailTab()">⟳</button></div><div class="gmail-empty">No emails in inbox.</div>`;
+  const unread=gmailTab.emails.filter(e=>e.unread).length;
+  const user=gmailUserEmail?`<span class="gmail-user" title="${esc(gmailUserEmail)}">${esc(gmailUserEmail)}</span>`:'';
+  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="gmail-row-time">${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
+  return `<div class="gmail-toolbar"><span class="gmail-title">Inbox${unread?` · <span style="color:var(--accent)">${unread} new</span>`:''}</span>${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div>`;
+}
+function gmailDetailHTML(forSinglePane){
+  const e=gmailTab.selectedEmail;if(!e)return '';
+  const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
+  return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}</div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div>${composeUI}</div>`;
+}
+function renderCompose(){
+  const e=gmailTab.selectedEmail;const isReply=gmailTab.composing==='reply';
+  const toLine=isReply?`To: <strong>${esc(e.from)}</strong>`:`To: <input id="compose-fwd-to" type="email" placeholder="recipient@example.com" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:13px;outline:none;margin-left:4px;width:260px">`;
+  const status=gmailTab.sendStatus?`<span class="gmail-compose-status ${gmailTab.sendStatus.kind}">${esc(gmailTab.sendStatus.text)}</span>`:'<span></span>';
+  return `<div class="gmail-compose"><div class="gmail-compose-to">${toLine}</div><textarea id="compose-textarea" placeholder="${isReply?'Type your reply…':'Add a message before the forwarded content…'}"></textarea><div class="gmail-compose-bar">${status}<div style="display:flex;gap:8px"><button class="gmail-action-btn secondary" onclick="cancelCompose()">Cancel</button><button class="gmail-action-btn" onclick="sendCompose()">${isReply?'Send Reply':'Forward'}</button></div></div></div>`;
 }
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}

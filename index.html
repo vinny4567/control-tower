@@ -430,7 +430,8 @@ async function sendCompose(){
   const to=isReply?e.from:fwdTo;
   const baseSubject=e.subject.replace(/^(Re:|Fwd:)\s*/i,'').trim();
   const subject=isReply?'Re: '+baseSubject:'Fwd: '+baseSubject;
-  const from=gmailUserEmail||'';
+  const from=gmailUserEmail;
+  if(!from){gmailTab.sendStatus={text:'Loading your email address — try again in a sec',kind:'error'};if(activeTab===3)renderViewport();fetchGmailProfile();return}
   const quotedBody=isReply?`\n\n--- Original message from ${e.from} on ${e.date} ---\n${e.body.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').substring(0,2000)}`:`\n\n--- Forwarded message from ${e.from} on ${e.date} ---\nSubject: ${e.subject}\nTo: ${e.to}\n\n${e.body.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').substring(0,2000)}`;
   const headers=[`From: ${from}`,`To: ${to}`,`Subject: ${subject}`,'Content-Type: text/plain; charset=UTF-8','MIME-Version: 1.0'];
   if(isReply&&e.messageIdHeader){headers.push(`In-Reply-To: ${e.messageIdHeader}`);headers.push(`References: ${e.messageIdHeader}`)}
@@ -445,7 +446,13 @@ async function sendCompose(){
       if(isReply&&e.id&&!e.starred)toggleStar(e.id);
       setTimeout(()=>cancelCompose(),1200)
     }
-    else{const err=await r.text();gmailTab.sendStatus={text:'Send failed: '+r.status,kind:'error'};console.error(err)}
+    else{
+      const errText=await r.text();
+      let msg='Send failed ('+r.status+')';
+      try{const j=JSON.parse(errText);if(j.error?.message)msg='Send failed: '+j.error.message}catch(e){}
+      gmailTab.sendStatus={text:msg,kind:'error'};
+      console.error('Gmail send error:',r.status,errText);
+    }
   }catch(err){gmailTab.sendStatus={text:'Send failed: '+err.message,kind:'error'}}
   if(activeTab===3)renderViewport();
 }

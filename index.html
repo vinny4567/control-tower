@@ -106,10 +106,12 @@
     .gmail-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
     .gmail-row-sender{font-size:14px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
     .gmail-row-time{font-size:12px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:6px}
-    .gmail-star{cursor:pointer;font-size:16px;line-height:1;color:var(--text-muted);background:none;border:none;padding:2px 4px;-webkit-tap-highlight-color:transparent;transition:transform .1s,color .15s}
-    .gmail-star:hover{color:#fbbf24;transform:scale(1.1)}
+    .gmail-star{cursor:pointer;font-size:18px;line-height:1;color:var(--text-dim);background:none;border:none;padding:2px 4px;-webkit-tap-highlight-color:transparent;transition:transform .1s,color .15s}
+    .gmail-star:hover{color:#fbbf24;transform:scale(1.15)}
     .gmail-star.starred{color:#fbbf24}
-    .gmail-detail-star{font-size:22px;padding:4px 8px;margin-left:8px}
+    .gmail-detail-star{font-size:24px;padding:4px 8px;margin-left:8px}
+    .gmail-action-btn.star-on{background:#fbbf24;color:#1a1d2e}
+    .gmail-action-btn.star-on:hover{background:#fcd34d}
     .gmail-row-subject{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
     .gmail-row-snippet{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .gmail-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
@@ -448,7 +450,8 @@ function gmailListHTML(forTwoPane){
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';
   const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button><button class="gmail-action-btn secondary" onclick="markUnread('${e.id}')">✉ Mark Unread</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
+  const starBtn=e.starred?`<button class="gmail-action-btn star-on" onclick="toggleStar('${e.id}',event)">★ Responded</button>`:`<button class="gmail-action-btn secondary" onclick="toggleStar('${e.id}',event)">☆ Mark Responded</button>`;
+  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button>${starBtn}<button class="gmail-action-btn secondary" onclick="markUnread('${e.id}')">✉ Mark Unread</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
   return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}<button class="gmail-star gmail-detail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar — mark as not responded':'Star — mark as responded'}">${e.starred?'★':'☆'}</button></div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div>${composeUI}</div>`;
 }
 function renderCompose(){

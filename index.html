@@ -281,7 +281,7 @@ let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
 
 // ── GMAIL ─────────────────────────────────────────────────────────
 const GMAIL_CLIENT_ID='513963645116-3sv5cf73n7pdvd41as25fp1e1gljqdms.apps.googleusercontent.com';
-const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send';
+const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.modify';
 let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token_v3')||'null')}catch(e){}
 let gmailUserEmail=null;
 let gmailEmails=null,gmailLoading=false,gmailTokenClient=null;

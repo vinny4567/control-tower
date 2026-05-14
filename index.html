@@ -10,6 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b0e14">
   <title>Angeli's Control Tower</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root{--bg:#0b0e14;--surface:#141820;--surface2:#1c2130;--border:#252d3d;--accent:#6c63ff;--accent2:#34d399;--text:#e2e8f0;--text-dim:#8892a4;--text-muted:#4a5568;--ph-bg:#111520;--header-h:48px;--ph-h:40px}
     body.light{--bg:#f5f6fa;--surface:#ffffff;--surface2:#eef0f5;--border:#d8dce8;--accent:#6c63ff;--accent2:#10b981;--text:#1a1d2e;--text-dim:#5a6178;--text-muted:#9ba3b8;--ph-bg:#f0f1f6}
@@ -75,6 +76,15 @@
     .email-subject strong{color:var(--text);font-weight:600}
     .email-time{font-size:11px;color:var(--text-muted);font-weight:500;white-space:nowrap}
     .email-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:4px;vertical-align:middle}
+    .email-empty{padding:34px 18px;text-align:center;color:var(--text-muted);font-size:13px}
+    .email-signin{padding:30px 18px 34px;display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--text-dim)}
+    .email-signin p{font-size:13px;text-align:center;max-width:280px;line-height:1.5}
+    .signin-btn{display:flex;align-items:center;gap:10px;padding:11px 22px;background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:24px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Roboto','Helvetica Neue',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.18);transition:box-shadow .15s,transform .1s}
+    .signin-btn:hover{box-shadow:0 4px 14px rgba(0,0,0,.24)}
+    .signin-btn:active{transform:translateY(1px)}
+    .signin-btn::before{content:'';width:18px;height:18px;flex-shrink:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/%3E%3Cpath fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/%3E%3Cpath fill='%23FBBC05' d='M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'/%3E%3Cpath fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'/%3E%3C/svg%3E");background-size:contain;background-repeat:no-repeat}
+    .signout-link{font-size:11px;color:var(--text-muted);cursor:pointer;text-decoration:underline;padding:8px 18px;text-align:right;display:block}
+    .signout-link:hover{color:var(--text-dim)}
     .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
     .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
     .panel-header{height:var(--ph-h);background:var(--ph-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px 0 10px;gap:4px;flex-shrink:0;user-select:none}
@@ -190,6 +200,57 @@ function loadCfg(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
 const DASH='dashboard';
 let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
+
+// ── GMAIL ─────────────────────────────────────────────────────────
+const GMAIL_CLIENT_ID='513963645116-3sv5cf73n7pdvd41as25fp1e1gljqdms.apps.googleusercontent.com';
+const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.readonly';
+let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token')||'null')}catch(e){}
+let gmailEmails=null,gmailLoading=false,gmailTokenClient=null;
+function gmailValid(){return gmailToken&&gmailToken.expires>Date.now()+30000}
+function gmailSaveToken(t){gmailToken=t;localStorage.setItem('gmail_token',JSON.stringify(t))}
+function gmailClearToken(){gmailToken=null;gmailEmails=null;localStorage.removeItem('gmail_token')}
+function initGmail(){
+  if(!window.google?.accounts?.oauth2){setTimeout(initGmail,200);return}
+  gmailTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:GMAIL_CLIENT_ID,
+    scope:GMAIL_SCOPE,
+    callback:(resp)=>{
+      if(resp.error){console.error('gmail auth error',resp);return}
+      gmailSaveToken({token:resp.access_token,expires:Date.now()+(resp.expires_in||3600)*1000});
+      fetchGmail();
+    }
+  });
+  if(gmailValid())fetchGmail();
+}
+function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken()}
+function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
+function parseSender(from){const m=from.match(/^"?([^"<]*)"?\s*<.+>$/);return m?m[1].trim():from.split('@')[0]||from}
+function relTime(ts){const d=Date.now()-ts,min=Math.floor(d/60000);if(min<1)return 'now';if(min<60)return min+'m';const h=Math.floor(min/60);if(h<24)return h+'h';const dy=Math.floor(h/24);return dy+'d'}
+async function fetchGmail(){
+  if(!gmailValid()||gmailLoading)return;
+  gmailLoading=true;
+  if(activeTab===DASH)renderViewport();
+  try{
+    const auth={Authorization:'Bearer '+gmailToken.token};
+    const listRes=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&labelIds=INBOX',{headers:auth});
+    if(listRes.status===401){gmailClearToken();gmailLoading=false;if(activeTab===DASH)renderViewport();return}
+    if(!listRes.ok)throw new Error('list '+listRes.status);
+    const list=await listRes.json();
+    if(!list.messages){gmailEmails=[];gmailLoading=false;if(activeTab===DASH)renderViewport();return}
+    const results=await Promise.all(list.messages.map(async m=>{
+      const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,{headers:auth});
+      if(!r.ok)return null;
+      const msg=await r.json();
+      const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
+      return {id:m.id,sender:parseSender(hdr.From||'(unknown)'),subject:hdr.Subject||'(no subject)',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false}
+    }));
+    gmailEmails=results.filter(Boolean);
+  }catch(e){console.error('gmail fetch',e)}
+  gmailLoading=false;
+  if(activeTab===DASH)renderViewport();
+}
+setInterval(()=>{if(gmailValid()&&activeTab===DASH)fetchGmail()},60000);
+window.addEventListener('load',()=>initGmail());
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -198,22 +259,29 @@ tick();setInterval(tick,1000);
 function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p)}
 function dashboardHTML(){
-  const emails=[
-    {sender:'DoorDash',subject:'New order #4823 — John D. · $48.20',time:'2m',unread:true},
-    {sender:'OpenTable',subject:'Reservation confirmed: party of 6 at 7:30 PM',time:'18m',unread:true},
-    {sender:'Sysco Delivery',subject:'Tomorrow\'s delivery rescheduled to 9 AM',time:'42m',unread:true},
-    {sender:'Maria (Server)',subject:'Out sick tomorrow — can someone cover lunch?',time:'1h',unread:false},
-    {sender:'Catering Inquiry',subject:'Wedding party of 75 — Sept 12, can you quote?',time:'2h',unread:false},
-    {sender:'Otter Support',subject:'Weekly sales report attached',time:'3h',unread:false},
-  ];
-  const emailRows=emails.map(e=>`<div class="email-item ${e.unread?'unread':''}"><div class="email-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="email-subject">${esc(e.subject)}</div><div class="email-time">${e.time}</div></div>`).join('');
-  const unreadCount=emails.filter(e=>e.unread).length;
+  // Inbox card content depends on Gmail sign-in state
+  let inboxBody,inboxBadge='',inboxFooter='';
+  if(!gmailValid()){
+    inboxBody=`<div class="email-signin"><p>Connect your Gmail to see real emails coming in.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div>`;
+  }else if(gmailEmails===null){
+    inboxBody=`<div class="email-empty">Loading inbox…</div>`;
+  }else if(gmailEmails.length===0){
+    inboxBody=`<div class="email-empty">No recent emails in your inbox.</div>`;
+    inboxFooter=`<div class="signout-link" onclick="gmailSignOut()">Sign out of Gmail</div>`;
+  }else{
+    const rows=gmailEmails.map(e=>`<div class="email-item ${e.unread?'unread':''}"><div class="email-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="email-subject">${esc(e.subject)}</div><div class="email-time">${e.time}</div></div>`).join('');
+    inboxBody=`<div class="email-list">${rows}</div>`;
+    const unreadCount=gmailEmails.filter(e=>e.unread).length;
+    if(unreadCount>0)inboxBadge=`<div class="dc-badge">${unreadCount} new</div>`;
+    inboxFooter=`<div class="signout-link" onclick="gmailSignOut()">Sign out of Gmail</div>`;
+  }
   return `
     <div class="dashboard">
       <div class="dash-grid">
         <div class="dash-card wide">
-          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📧</span>Inbox</div><div class="dc-badge">${unreadCount} new</div></div>
-          <div class="email-list">${emailRows}</div>
+          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📧</span>Inbox</div>${inboxBadge}</div>
+          ${inboxBody}
+          ${inboxFooter}
         </div>
         <div class="dash-card">
           <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📅</span>Reservations Today</div><div class="dc-badge green">12</div></div>

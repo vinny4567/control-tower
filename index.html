@@ -96,9 +96,13 @@
     .gmail-list-tab{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     .gmail-row{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
     .gmail-row:hover{background:var(--surface)}
-    .gmail-row.unread{background:rgba(108,99,255,.05)}
-    .gmail-row.unread .gmail-row-sender{color:var(--accent);font-weight:700}
+    .gmail-row{position:relative}
+    .gmail-row.unread{background:rgba(108,99,255,.08)}
+    .gmail-row.unread::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+    .gmail-row.unread .gmail-row-sender{color:var(--accent);font-weight:800}
     .gmail-row.unread .gmail-row-subject{color:var(--text);font-weight:700}
+    .gmail-row.unread .gmail-row-snippet{color:var(--text-dim)}
+    .unread-badge{display:inline-block;background:var(--accent);color:#fff;font-size:9px;font-weight:800;padding:1px 6px;border-radius:8px;margin-right:6px;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
     .gmail-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
     .gmail-row-sender{font-size:14px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
     .gmail-row-time{font-size:12px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:6px}
@@ -367,6 +371,11 @@ async function selectEmail(id){
   if(activeTab===3)renderViewport();
 }
 async function markRead(id){try{await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['UNREAD']})})}catch(e){}}
+async function markUnread(id){
+  const e=gmailTab.emails?.find(x=>x.id===id);if(e)e.unread=true;
+  if(activeTab===3)renderViewport();
+  try{await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({addLabelIds:['UNREAD']})})}catch(err){console.error('mark unread',err)}
+}
 async function toggleStar(id,event){if(event){event.stopPropagation()}
   const e=gmailTab.emails?.find(x=>x.id===id);const sel=gmailTab.selectedEmail?.id===id?gmailTab.selectedEmail:null;
   const wasStarred=e?e.starred:(sel?sel.starred:false);
@@ -433,13 +442,13 @@ function gmailListHTML(forTwoPane){
   if(gmailTab.emails.length===0)return `<div class="gmail-toolbar"><span class="gmail-title">Inbox</span><button class="gmail-refresh" onclick="loadGmailTab()">⟳</button></div><div class="gmail-empty">No emails in inbox.</div>`;
   const unread=gmailTab.emails.filter(e=>e.unread).length;
   const user=gmailUserEmail?`<span class="gmail-user" title="${esc(gmailUserEmail)}">${esc(gmailUserEmail)}</span>`:'';
-  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="gmail-row-time"><button class="gmail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar (mark as not responded)':'Star (mark as responded)'}">${e.starred?'★':'☆'}</button>${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
+  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="unread-badge">New</span>':''}${esc(e.sender)}</div><div class="gmail-row-time"><button class="gmail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar (mark as not responded)':'Star (mark as responded)'}">${e.starred?'★':'☆'}</button>${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
   return `<div class="gmail-toolbar"><span class="gmail-title">Inbox${unread?` · <span style="color:var(--accent)">${unread} new</span>`:''}</span>${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div>`;
 }
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';
   const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
+  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button><button class="gmail-action-btn secondary" onclick="markUnread('${e.id}')">✉ Mark Unread</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
   return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}<button class="gmail-star gmail-detail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar — mark as not responded':'Star — mark as responded'}">${e.starred?'★':'☆'}</button></div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div>${composeUI}</div>`;
 }
 function renderCompose(){

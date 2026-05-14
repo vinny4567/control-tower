@@ -101,7 +101,11 @@
     .gmail-row.unread .gmail-row-subject{color:var(--text);font-weight:700}
     .gmail-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
     .gmail-row-sender{font-size:14px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px}
-    .gmail-row-time{font-size:12px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+    .gmail-row-time{font-size:12px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:6px}
+    .gmail-star{cursor:pointer;font-size:16px;line-height:1;color:var(--text-muted);background:none;border:none;padding:2px 4px;-webkit-tap-highlight-color:transparent;transition:transform .1s,color .15s}
+    .gmail-star:hover{color:#fbbf24;transform:scale(1.1)}
+    .gmail-star.starred{color:#fbbf24}
+    .gmail-detail-star{font-size:22px;padding:4px 8px;margin-left:8px}
     .gmail-row-subject{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
     .gmail-row-snippet{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .gmail-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
@@ -340,7 +344,7 @@ async function loadGmailTab(){
       if(!r.ok)return null;
       const msg=await r.json();
       const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
-      return {id:m.id,sender:parseSender(hdr.From||'(unknown)'),from:hdr.From||'',subject:hdr.Subject||'(no subject)',date:hdr.Date||'',snippet:msg.snippet||'',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false}
+      return {id:m.id,sender:parseSender(hdr.From||'(unknown)'),from:hdr.From||'',subject:hdr.Subject||'(no subject)',date:hdr.Date||'',snippet:msg.snippet||'',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false,starred:msg.labelIds?.includes('STARRED')||false}
     }));
     gmailTab.emails=results.filter(Boolean);
   }catch(e){console.error('gmail tab fetch',e)}
@@ -355,7 +359,7 @@ async function selectEmail(id){
     if(r.ok){
       const msg=await r.json();
       const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
-      gmailTab.selectedEmail={id,threadId:msg.threadId,messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',subject:hdr.Subject||'(no subject)',from:hdr.From||'',to:hdr.To||'',date:hdr.Date||'',body:extractBody(msg)};
+      gmailTab.selectedEmail={id,threadId:msg.threadId,messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',subject:hdr.Subject||'(no subject)',from:hdr.From||'',to:hdr.To||'',date:hdr.Date||'',body:extractBody(msg),starred:msg.labelIds?.includes('STARRED')||false};
       const e=gmailTab.emails?.find(x=>x.id===id);if(e&&e.unread){e.unread=false;markRead(id)}
     }
   }catch(e){console.error('gmail detail',e)}
@@ -363,6 +367,16 @@ async function selectEmail(id){
   if(activeTab===3)renderViewport();
 }
 async function markRead(id){try{await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['UNREAD']})})}catch(e){}}
+async function toggleStar(id,event){if(event){event.stopPropagation()}
+  const e=gmailTab.emails?.find(x=>x.id===id);const sel=gmailTab.selectedEmail?.id===id?gmailTab.selectedEmail:null;
+  const wasStarred=e?e.starred:(sel?sel.starred:false);
+  const newStarred=!wasStarred;
+  if(e)e.starred=newStarred;if(sel)sel.starred=newStarred;
+  if(activeTab===3)renderViewport();
+  try{
+    await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify(newStarred?{addLabelIds:['STARRED']}:{removeLabelIds:['STARRED']})});
+  }catch(err){console.error('star',err);if(e)e.starred=wasStarred;if(sel)sel.starred=wasStarred;if(activeTab===3)renderViewport()}
+}
 async function archiveEmail(id){if(!confirm('Archive this email?'))return;try{const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['INBOX']})});if(r.ok){gmailTab.emails=gmailTab.emails?.filter(e=>e.id!==id);closeEmail()}}catch(e){alert('Archive failed: '+e.message)}}
 async function trashEmail(id){if(!confirm('Move to Trash?'))return;try{const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token}});if(r.ok){gmailTab.emails=gmailTab.emails?.filter(e=>e.id!==id);closeEmail()}}catch(e){alert('Trash failed: '+e.message)}}
 function startReply(){gmailTab.composing='reply';gmailTab.sendStatus=null;if(activeTab===3)renderViewport();setTimeout(()=>{const t=document.getElementById('compose-textarea');if(t)t.focus()},50)}
@@ -389,7 +403,11 @@ async function sendCompose(){
   gmailTab.sendStatus={text:'Sending…',kind:'info'};if(activeTab===3)renderViewport();
   try{
     const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify(sendBody)});
-    if(r.ok){gmailTab.sendStatus={text:'Sent ✓',kind:'success'};setTimeout(()=>cancelCompose(),1200)}
+    if(r.ok){gmailTab.sendStatus={text:'Sent ✓',kind:'success'};
+      // Auto-star the email we just responded to (so it shows as "responded")
+      if(isReply&&e.id&&!e.starred)toggleStar(e.id);
+      setTimeout(()=>cancelCompose(),1200)
+    }
     else{const err=await r.text();gmailTab.sendStatus={text:'Send failed: '+r.status,kind:'error'};console.error(err)}
   }catch(err){gmailTab.sendStatus={text:'Send failed: '+err.message,kind:'error'}}
   if(activeTab===3)renderViewport();
@@ -415,14 +433,14 @@ function gmailListHTML(forTwoPane){
   if(gmailTab.emails.length===0)return `<div class="gmail-toolbar"><span class="gmail-title">Inbox</span><button class="gmail-refresh" onclick="loadGmailTab()">⟳</button></div><div class="gmail-empty">No emails in inbox.</div>`;
   const unread=gmailTab.emails.filter(e=>e.unread).length;
   const user=gmailUserEmail?`<span class="gmail-user" title="${esc(gmailUserEmail)}">${esc(gmailUserEmail)}</span>`:'';
-  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="gmail-row-time">${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
+  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="gmail-row-time"><button class="gmail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar (mark as not responded)':'Star (mark as responded)'}">${e.starred?'★':'☆'}</button>${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
   return `<div class="gmail-toolbar"><span class="gmail-title">Inbox${unread?` · <span style="color:var(--accent)">${unread} new</span>`:''}</span>${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div>`;
 }
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';
   const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
-  return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}</div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div>${composeUI}</div>`;
+  return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}<button class="gmail-star gmail-detail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar — mark as not responded':'Star — mark as responded'}">${e.starred?'★':'☆'}</button></div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div>${composeUI}</div>`;
 }
 function renderCompose(){
   const e=gmailTab.selectedEmail;const isReply=gmailTab.composing==='reply';

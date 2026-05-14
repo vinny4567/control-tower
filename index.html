@@ -297,10 +297,10 @@ function initGmail(){
     callback:(resp)=>{
       if(resp.error){console.error('gmail auth error',resp);return}
       gmailSaveToken({token:resp.access_token,expires:Date.now()+(resp.expires_in||3600)*1000});
-      fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();
+      fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling();
     }
   });
-  if(gmailValid()){fetchGmailProfile();fetchGmail()}
+  if(gmailValid()){fetchGmailProfile();fetchGmail();startGmailPolling()}
 }
 function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken()}
 function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
@@ -329,7 +329,30 @@ async function fetchGmail(){
   gmailLoading=false;
   if(activeTab===DASH)renderViewport();
 }
-setInterval(()=>{if(gmailValid()&&activeTab===DASH)fetchGmail()},60000);
+// Background polling — checks for new emails every 15s using Gmail's history API
+// (lightweight; only does work if something actually changed)
+let gmailHistoryId=null,gmailPollTimer=null;
+async function gmailPoll(){
+  if(!gmailValid())return;
+  try{
+    if(!gmailHistoryId){
+      const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile',{headers:{Authorization:'Bearer '+gmailToken.token}});
+      if(r.ok){const p=await r.json();gmailHistoryId=p.historyId}
+      return;
+    }
+    const url=`https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${gmailHistoryId}&historyTypes=messageAdded&historyTypes=labelAdded&historyTypes=labelRemoved&labelId=INBOX`;
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+gmailToken.token}});
+    if(!r.ok){if(r.status===404)gmailHistoryId=null;return}
+    const data=await r.json();
+    if(data.historyId)gmailHistoryId=data.historyId;
+    if(data.history&&data.history.length>0){
+      // Something changed — refresh dashboard always, refresh Gmail tab only if user isn't reading an email
+      fetchGmail();
+      if(activeTab===3&&!gmailTab.selectedEmail)loadGmailTab();
+    }
+  }catch(e){console.error('gmail poll',e)}
+}
+function startGmailPolling(){if(gmailPollTimer)return;gmailPoll();gmailPollTimer=setInterval(gmailPoll,15000)}
 window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────

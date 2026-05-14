@@ -168,6 +168,8 @@
       <button class="icon-btn" onclick="closeSettings()">✕</button>
     </div>
     <div class="modal-body">
+      <div class="section-label">Gmail</div>
+      <div id="gmail-status" style="margin-bottom:16px"></div>
       <div class="section-label">Panels — check ↗ for apps that block embedding</div>
       <div id="edit-list"></div>
       <button class="add-row-btn" onclick="addRow()">＋ Add panel</button>
@@ -267,13 +269,11 @@ function dashboardHTML(){
     inboxBody=`<div class="email-empty">Loading inbox…</div>`;
   }else if(gmailEmails.length===0){
     inboxBody=`<div class="email-empty">No recent emails in your inbox.</div>`;
-    inboxFooter=`<div class="signout-link" onclick="gmailSignOut()">Sign out of Gmail</div>`;
   }else{
     const rows=gmailEmails.map(e=>`<div class="email-item ${e.unread?'unread':''}"><div class="email-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="email-subject">${esc(e.subject)}</div><div class="email-time">${e.time}</div></div>`).join('');
     inboxBody=`<div class="email-list">${rows}</div>`;
     const unreadCount=gmailEmails.filter(e=>e.unread).length;
     if(unreadCount>0)inboxBadge=`<div class="dc-badge">${unreadCount} new</div>`;
-    inboxFooter=`<div class="signout-link" onclick="gmailSignOut()">Sign out of Gmail</div>`;
   }
   return `
     <div class="dashboard">
@@ -331,7 +331,16 @@ function urlKey(e,id){if(e.key==='Enter')urlSave(id);if(e.key==='Escape')urlCanc
 function urlSave(id){const inp=document.getElementById(`ui-${id}`);if(!inp)return;const p=cfg.panels.find(x=>x.id===id);if(p){p.url=inp.value.trim();saveCfg()}editing=null;refreshBody(id)}
 function urlCancel(id){editing=null;refreshBody(id)}
 let draft=[];
-function openSettings(){draft=cfg.panels.map(p=>({...p}));renderEditList();document.getElementById('overlay').classList.add('open')}
+function openSettings(){draft=cfg.panels.map(p=>({...p}));renderEditList();renderGmailStatus();document.getElementById('overlay').classList.add('open')}
+function renderGmailStatus(){
+  const el=document.getElementById('gmail-status');if(!el)return;
+  if(gmailValid()){
+    el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px"><span style="font-size:13px;color:var(--text-dim)">✓ Connected — your inbox is showing live emails</span><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="gmailSignOutConfirm()">Sign out</button></div>`;
+  }else{
+    el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px"><span style="font-size:13px;color:var(--text-muted)">Not connected</span><button class="btn-primary" style="padding:5px 14px;font-size:12px" onclick="gmailSignIn();closeSettings()">Sign in</button></div>`;
+  }
+}
+function gmailSignOutConfirm(){if(confirm('Sign out of Gmail? The dashboard will stop showing your real emails until you sign in again.')){gmailSignOut();renderGmailStatus()}}
 function closeSettings(){document.getElementById('overlay').classList.remove('open')}
 function backdropClose(e){if(e.target===document.getElementById('overlay'))closeSettings()}
 function renderEditList(){document.getElementById('edit-list').innerHTML=draft.map(p=>`<div class="edit-row"><input class="e-emoji" type="text" value="${esc(p.emoji)}" placeholder="📊" oninput="ud(${p.id},'emoji',this.value)"><input class="e-name" type="text" value="${esc(p.name)}" placeholder="App name" oninput="ud(${p.id},'name',this.value)"><input class="e-url" type="url" value="${esc(p.url)}" placeholder="https://…" oninput="ud(${p.id},'url',this.value)"><div class="e-launcher-wrap"><input type="checkbox" id="lch-${p.id}" ${p.launcher?'checked':''} onchange="ud(${p.id},'launcher',this.checked)"><label for="lch-${p.id}">↗</label></div><button class="del-btn" onclick="deleteRow(${p.id})" title="Remove">✕</button></div>`).join('')}

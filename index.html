@@ -379,7 +379,21 @@ async function gmailPoll(){
     }
   }catch(e){console.error('gmail poll',e)}
 }
-function startGmailPolling(){if(gmailPollTimer)return;gmailPoll();gmailPollTimer=setInterval(gmailPoll,5000)}
+function startGmailPolling(){
+  if(gmailPollTimer)return;
+  gmailPoll();
+  gmailPollTimer=setInterval(gmailPoll,3000);
+  // Also trigger a poll when the user touches the screen — gives a "live" feel during active use
+  let lastTouchPoll=0;
+  document.addEventListener('touchstart',function(){
+    const now=Date.now();
+    if(now-lastTouchPoll>1500){lastTouchPoll=now;gmailPoll()}
+  },{passive:true});
+  document.addEventListener('click',function(){
+    const now=Date.now();
+    if(now-lastTouchPoll>1500){lastTouchPoll=now;gmailPoll()}
+  },{passive:true});
+}
 // When app returns to foreground (iOS suspends timers when backgrounded), force a fresh check
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden&&gmailValid()){

@@ -270,13 +270,6 @@
         • <strong>Catering / Reservations</strong> — log in once inside the panel<br>
         • <strong>Gmail / Online Orders</strong> — use launcher mode (on by default)
       </div>
-      <div class="section-label" style="margin-top:20px">App</div>
-      <button class="btn-secondary" style="width:100%;padding:11px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="reloadAppHard()">
-        🔄 Reload App (clear cache &amp; refresh)
-      </button>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.5;text-align:center">
-        Use this if Control Tower looks outdated or seems stuck on old data.
-      </div>
     </div>
     <div class="modal-foot">
       <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
@@ -682,24 +675,6 @@ function renderGmailStatus(){
   }
 }
 function gmailSignOutConfirm(){if(confirm('Sign out of Gmail? The dashboard will stop showing your real emails until you sign in again.')){gmailSignOut();renderGmailStatus()}}
-async function reloadAppHard(){
-  try{
-    // Unregister any service workers so they stop serving cached responses
-    if('serviceWorker' in navigator){
-      const regs=await navigator.serviceWorker.getRegistrations();
-      for(const r of regs) await r.unregister();
-    }
-    // Wipe all CacheStorage entries
-    if('caches' in window){
-      const keys=await caches.keys();
-      for(const k of keys) await caches.delete(k);
-    }
-  }catch(e){console.error('reload cleanup',e)}
-  // Hard reload with cache-bust param so iOS Safari fetches the latest HTML
-  const u=new URL(location.href);
-  u.searchParams.set('_t',Date.now().toString());
-  location.replace(u.toString());
-}
 function closeSettings(){document.getElementById('overlay').classList.remove('open')}
 function backdropClose(e){if(e.target===document.getElementById('overlay'))closeSettings()}
 function renderEditList(){document.getElementById('edit-list').innerHTML=draft.map(p=>`<div class="edit-row"><input class="e-emoji" type="text" value="${esc(p.emoji)}" placeholder="📊" oninput="ud(${p.id},'emoji',this.value)"><input class="e-name" type="text" value="${esc(p.name)}" placeholder="App name" oninput="ud(${p.id},'name',this.value)"><input class="e-url" type="url" value="${esc(p.url)}" placeholder="https://…" oninput="ud(${p.id},'url',this.value)"><div class="e-launcher-wrap"><input type="checkbox" id="lch-${p.id}" ${p.launcher?'checked':''} onchange="ud(${p.id},'launcher',this.checked)"><label for="lch-${p.id}">↗</label></div><button class="del-btn" onclick="deleteRow(${p.id})" title="Remove">✕</button></div>`).join('')}

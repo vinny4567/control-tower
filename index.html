@@ -122,6 +122,21 @@
     .gmail-detail-meta strong{color:var(--text);font-weight:700}
     .gmail-detail-date{font-size:12px;color:var(--text-muted);margin-top:3px}
     .gmail-body{flex:1;width:100%;border:none;background:#fff;min-height:0}
+    /* Thread view */
+    .gmail-thread{padding:16px 18px 24px}
+    .gmail-thread-subject{display:flex;align-items:flex-start;gap:8px;font-size:20px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:4px}
+    .gmail-thread-subject .subj-text{flex:1;min-width:0;word-wrap:break-word}
+    .gmail-thread-count{font-size:12px;color:var(--text-muted);margin-bottom:14px}
+    .gmail-msg{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+    .gmail-msg.sent{background:rgba(108,99,255,.06);border-color:rgba(108,99,255,.3)}
+    .gmail-msg-head{padding:12px 16px;border-bottom:1px solid var(--border)}
+    .gmail-msg-from-line{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+    .gmail-msg-from{font-size:14px;font-weight:700;color:var(--text)}
+    .gmail-msg.sent .gmail-msg-from{color:var(--accent)}
+    .gmail-msg-date{font-size:12px;color:var(--text-muted);white-space:nowrap}
+    .gmail-msg-fromfull{font-size:12px;color:var(--text-dim);margin-top:2px;word-break:break-all}
+    .gmail-msg-body{background:#fff}
+    .gmail-msg-body iframe{width:100%;height:420px;border:none;display:block}
     .gmail-loading,.gmail-empty{padding:60px 24px;text-align:center;color:var(--text-muted);font-size:14px}
     .gmail-signin{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
     .gmail-signin-card{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:360px;text-align:center}
@@ -393,7 +408,7 @@ async function loadGmailTab(){
       if(!r.ok)return null;
       const msg=await r.json();
       const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
-      return {id:m.id,sender:parseSender(hdr.From||'(unknown)'),from:hdr.From||'',subject:hdr.Subject||'(no subject)',date:hdr.Date||'',snippet:msg.snippet||'',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false,starred:msg.labelIds?.includes('STARRED')||false}
+      return {id:m.id,threadId:m.threadId,sender:parseSender(hdr.From||'(unknown)'),from:hdr.From||'',subject:hdr.Subject||'(no subject)',date:hdr.Date||'',snippet:msg.snippet||'',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false,starred:msg.labelIds?.includes('STARRED')||false}
     }));
     gmailTab.emails=results.filter(Boolean);
   }catch(e){console.error('gmail tab fetch',e)}
@@ -404,16 +419,35 @@ async function selectEmail(id){
   gmailTab.selectedId=id;gmailTab.selectedEmail=null;gmailTab.loadingDetail=true;gmailTab.composing=null;gmailTab.sendStatus=null;
   if(activeTab===3)renderViewport();
   try{
-    const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,{headers:{Authorization:'Bearer '+gmailToken.token}});
-    if(r.ok){
-      const msg=await r.json();
-      const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
-      gmailTab.selectedEmail={id,threadId:msg.threadId,messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',subject:hdr.Subject||'(no subject)',from:hdr.From||'',replyTo:hdr['Reply-To']||hdr['reply-to']||'',to:hdr.To||'',date:hdr.Date||'',body:extractBody(msg),starred:msg.labelIds?.includes('STARRED')||false};
-      const e=gmailTab.emails?.find(x=>x.id===id);if(e&&e.unread){e.unread=false;markRead(id)}
+    const listEntry=gmailTab.emails?.find(e=>e.id===id);
+    let threadId=listEntry?.threadId;
+    if(!threadId){
+      const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=minimal`,{headers:{Authorization:'Bearer '+gmailToken.token}});
+      if(r.ok){threadId=(await r.json()).threadId}
     }
-  }catch(e){console.error('gmail detail',e)}
+    if(threadId)await loadThread(threadId,id);
+    const e=gmailTab.emails?.find(x=>x.id===id);if(e&&e.unread){e.unread=false;markRead(id)}
+  }catch(err){console.error('gmail detail',err)}
   gmailTab.loadingDetail=false;
   if(activeTab===3)renderViewport();
+}
+async function loadThread(threadId,focusedId){
+  const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=full`,{headers:{Authorization:'Bearer '+gmailToken.token}});
+  if(!r.ok)return;
+  const thread=await r.json();
+  const messages=(thread.messages||[]).map(m=>{
+    const hdr={};(m.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
+    return {id:m.id,from:hdr.From||'',to:hdr.To||'',date:hdr.Date||'',subject:hdr.Subject||'',body:extractBody(m),messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',replyTo:hdr['Reply-To']||hdr['reply-to']||'',timestamp:parseInt(m.internalDate||'0'),labelIds:m.labelIds||[]}
+  });
+  const lastMsg=messages[messages.length-1]||{};
+  const firstMsg=messages[0]||{};
+  gmailTab.selectedEmail={
+    id:focusedId,threadId,messages,
+    subject:firstMsg.subject||'(no subject)',
+    from:lastMsg.from||'',replyTo:lastMsg.replyTo||'',to:lastMsg.to||'',date:lastMsg.date||'',body:lastMsg.body||'',
+    messageIdHeader:lastMsg.messageIdHeader||'',
+    starred:lastMsg.labelIds?.includes('STARRED')||false,
+  };
 }
 async function markRead(id){try{await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`,{method:'POST',headers:{Authorization:'Bearer '+gmailToken.token,'Content-Type':'application/json'},body:JSON.stringify({removeLabelIds:['UNREAD']})})}catch(e){}}
 async function markUnread(id){
@@ -462,7 +496,8 @@ async function sendCompose(){
     if(r.ok){gmailTab.sendStatus={text:'Sent ✓',kind:'success'};
       // Auto-star the email we just responded to (so it shows as "responded")
       if(isReply&&e.id&&!e.starred)toggleStar(e.id);
-      setTimeout(()=>cancelCompose(),1200)
+      // Refresh the thread to show the new message
+      setTimeout(async()=>{cancelCompose();if(e.threadId){await loadThread(e.threadId,e.id);if(activeTab===3)renderViewport()}},1200);
     }
     else{
       const errText=await r.text();
@@ -500,10 +535,18 @@ function gmailListHTML(forTwoPane){
 }
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';
-  const bodyAttr=e.body.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   const starBtn=e.starred?`<button class="gmail-action-btn star-on" onclick="toggleStar('${e.id}',event)">★ Responded</button>`:`<button class="gmail-action-btn secondary" onclick="toggleStar('${e.id}',event)">☆ Mark Responded</button>`;
   const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button>${starBtn}<button class="gmail-action-btn secondary" onclick="markUnread('${e.id}')">✉ Mark Unread</button><button class="gmail-action-btn secondary" onclick="archiveEmail('${e.id}')">📥 Archive</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
-  return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-detail-head"><div class="gmail-detail-subject">${esc(e.subject)}<button class="gmail-star gmail-detail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar — mark as not responded':'Star — mark as responded'}">${e.starred?'★':'☆'}</button></div><div class="gmail-detail-meta"><strong>${esc(parseSender(e.from))}</strong> · ${esc(e.from)}</div><div class="gmail-detail-date">${esc(e.date)}</div></div><iframe class="gmail-body" srcdoc="${bodyAttr}" sandbox=""></iframe></div>${composeUI}</div>`;
+  const messages=e.messages&&e.messages.length?e.messages:[{id:e.id,from:e.from,to:e.to,date:e.date,body:e.body,timestamp:0}];
+  const userLow=(gmailUserEmail||'').toLowerCase();
+  const subjectBar=`<div class="gmail-thread-subject"><span class="subj-text">${esc(e.subject)}</span><button class="gmail-star gmail-detail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)">${e.starred?'★':'☆'}</button></div><div class="gmail-thread-count">${messages.length===1?'1 message':messages.length+' messages'}</div>`;
+  const msgs=messages.map(m=>{
+    const fromAddr=(m.from.match(/<([^>]+)>/)?.[1]||m.from).toLowerCase().trim();
+    const isSent=userLow&&fromAddr===userLow;
+    const bodyAttr=(m.body||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<div class="gmail-msg ${isSent?'sent':''}"><div class="gmail-msg-head"><div class="gmail-msg-from-line"><span class="gmail-msg-from">${isSent?'You':esc(parseSender(m.from))}</span><span class="gmail-msg-date">${esc(m.date)}</span></div>${isSent?'':`<div class="gmail-msg-fromfull">${esc(m.from)}</div>`}</div><div class="gmail-msg-body"><iframe srcdoc="${bodyAttr}" sandbox=""></iframe></div></div>`;
+  }).join('');
+  return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-thread">${subjectBar}${msgs}</div></div>${composeUI}</div>`;
 }
 function renderCompose(){
   const e=gmailTab.selectedEmail;const isReply=gmailTab.composing==='reply';

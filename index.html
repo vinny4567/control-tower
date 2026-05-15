@@ -171,6 +171,9 @@
     .gmail-compose-status.success{color:var(--accent2)}
     /* User chip in toolbar */
     .gmail-user{font-size:12px;color:var(--text-muted);padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+    .gmail-live{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);margin-left:8px;font-weight:500}
+    .gmail-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:livepulse 1.6s ease-in-out infinite}
+    @keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.85)}}
     .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
     .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
     .panel-header{height:var(--ph-h);background:var(--ph-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px 0 10px;gap:4px;flex-shrink:0;user-select:none}
@@ -367,7 +370,7 @@ async function gmailPoll(){
     }
   }catch(e){console.error('gmail poll',e)}
 }
-function startGmailPolling(){if(gmailPollTimer)return;gmailPoll();gmailPollTimer=setInterval(gmailPoll,15000)}
+function startGmailPolling(){if(gmailPollTimer)return;gmailPoll();gmailPollTimer=setInterval(gmailPoll,5000)}
 // When app returns to foreground (iOS suspends timers when backgrounded), force a fresh check
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden&&gmailValid()){
@@ -539,7 +542,7 @@ function gmailListHTML(forTwoPane){
   const unread=gmailTab.emails.filter(e=>e.unread).length;
   const user=gmailUserEmail?`<span class="gmail-user" title="${esc(gmailUserEmail)}">${esc(gmailUserEmail)}</span>`:'';
   const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="unread-badge">New</span>':''}${esc(e.sender)}</div><div class="gmail-row-time"><button class="gmail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar (mark as not responded)':'Star (mark as responded)'}">${e.starred?'★':'☆'}</button>${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
-  return `<div class="gmail-toolbar"><span class="gmail-title">Inbox${unread?` · <span style="color:var(--accent)">${unread} new</span>`:''}</span>${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div>`;
+  return `<div class="gmail-toolbar"><span class="gmail-title">Inbox${unread?` · <span style="color:var(--accent)">${unread} new</span>`:''}<span class="gmail-live" title="Auto-checks for new mail every 5 seconds">live</span></span>${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div>`;
 }
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';

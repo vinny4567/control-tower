@@ -639,7 +639,7 @@ function bodyHTML(p){
   if(p.id===3||(p.url||'').includes('mail.google.com')){return gmailMailboxHTML()}
   if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}
   if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;
-  return `<iframe src="${esc(p.url)}" allow="fullscreen"></iframe>`
+  return `<iframe src="${esc(p.url)}" allow="storage-access fullscreen"></iframe>`
 }
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function doReload(id){const f=document.querySelector(`#body-${id} iframe`);if(f)f.src=f.src}

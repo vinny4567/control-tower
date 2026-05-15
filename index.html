@@ -395,6 +395,20 @@ window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
 let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false,composing:null,sendStatus:null};
+// Remember the inbox scroll position so opening/closing an email doesn't kick the list back to the top
+let gmailListScrollPos=0;
+document.addEventListener('scroll',function(e){
+  const t=e.target;
+  if(t&&t.classList&&t.classList.contains&&t.classList.contains('gmail-list-tab')){
+    gmailListScrollPos=t.scrollTop;
+  }
+},true);
+function restoreGmailListScroll(){
+  requestAnimationFrame(function(){
+    const list=document.querySelector('.gmail-list-tab');
+    if(list&&gmailListScrollPos>0){list.scrollTop=gmailListScrollPos;}
+  });
+}
 function findPart(part,mime){if(part.mimeType===mime&&part.body?.data)return part;if(part.parts)for(const p of part.parts){const r=findPart(p,mime);if(r)return r}return null}
 function decodeB64(s){try{return atob((s||'').replace(/-/g,'+').replace(/_/g,'/'))}catch(e){return ''}}
 function extractBody(msg){const h=findPart(msg.payload,'text/html');if(h)return decodeB64(h.body.data);const t=findPart(msg.payload,'text/plain');if(t){const text=decodeB64(t.body.data);return '<pre style="white-space:pre-wrap;font-family:-apple-system,sans-serif;font-size:14px;color:#222;padding:18px;margin:0">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'}return '<div style="padding:24px;color:#888;font-family:-apple-system,sans-serif">(no content)</div>'}
@@ -591,7 +605,7 @@ function renderCompose(){
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
 function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
-function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p)}
+function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
 function dashboardHTML(){
   // Inbox card content depends on Gmail sign-in state
   let inboxBody,inboxBadge='',inboxFooter='';

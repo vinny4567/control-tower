@@ -634,10 +634,14 @@ function switchTab(id){
 }
 function reloadActive(){const f=document.querySelector('#viewport iframe');if(f)f.src=f.src}
 function popoutActive(){doOpen(activeTab)}
+function isPWA(){return window.navigator.standalone===true||window.matchMedia('(display-mode:standalone)').matches}
 function bodyHTML(p){
   // Special: Gmail panel renders a real inbox UI powered by Gmail API
   if(p.id===3||(p.url||'').includes('mail.google.com')){return gmailMailboxHTML()}
-  if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}
+  // iOS PWAs can't grant storage-access for cross-origin iframes; force launcher mode for auth-required apps
+  const needsAuthCookies=(p.url||'').includes('restaurant-scheduler')||(p.url||'').includes('order.angeliscatering')||(p.url||'').includes('angelis-backend');
+  const forceLauncher=p.launcher||(isPWA()&&needsAuthCookies);
+  if(forceLauncher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open in Safari (login required only once a year)':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}
   if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;
   return `<iframe src="${esc(p.url)}" allow="storage-access fullscreen"></iframe>`
 }

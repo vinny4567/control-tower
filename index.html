@@ -408,7 +408,7 @@ async function selectEmail(id){
     if(r.ok){
       const msg=await r.json();
       const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
-      gmailTab.selectedEmail={id,threadId:msg.threadId,messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',subject:hdr.Subject||'(no subject)',from:hdr.From||'',to:hdr.To||'',date:hdr.Date||'',body:extractBody(msg),starred:msg.labelIds?.includes('STARRED')||false};
+      gmailTab.selectedEmail={id,threadId:msg.threadId,messageIdHeader:hdr['Message-ID']||hdr['Message-Id']||'',subject:hdr.Subject||'(no subject)',from:hdr.From||'',replyTo:hdr['Reply-To']||hdr['reply-to']||'',to:hdr.To||'',date:hdr.Date||'',body:extractBody(msg),starred:msg.labelIds?.includes('STARRED')||false};
       const e=gmailTab.emails?.find(x=>x.id===id);if(e&&e.unread){e.unread=false;markRead(id)}
     }
   }catch(e){console.error('gmail detail',e)}
@@ -509,8 +509,11 @@ function renderCompose(){
   const e=gmailTab.selectedEmail;const isReply=gmailTab.composing==='reply';
   let suggestedTo=e.from;let hint='';
   if(isReply){
-    const customer=extractCustomerEmail(e.body,e.from);
-    if(customer){suggestedTo=customer;hint=' <span style="color:var(--accent2);font-size:11px">✓ found customer email in message</span>'}
+    if(e.replyTo){suggestedTo=e.replyTo;hint=' <span style="color:var(--accent2);font-size:11px">✓ using Reply-To address</span>'}
+    else{
+      const customer=extractCustomerEmail(e.body,e.from);
+      if(customer){suggestedTo=customer;hint=' <span style="color:var(--accent2);font-size:11px">✓ customer email from body</span>'}
+    }
   }
   const inputStyle='background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 10px;color:var(--text);font-size:13px;outline:none;margin-left:4px;flex:1;min-width:0';
   const toLine=isReply

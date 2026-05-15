@@ -289,7 +289,7 @@ const KEY='angeli_tower_v2';
 function defaultLayout(){return window.innerWidth<1280?2:3}
 const DEFAULT_PANELS=[
   {id:1,emoji:'📅',name:'Schedule',url:'https://restaurant-scheduler-hh5e.onrender.com/login',launcher:false},
-  {id:2,emoji:'💰',name:'Tipout',url:'https://vinny4567.github.io/tipout/?v=32',launcher:false},
+  {id:2,emoji:'💰',name:'Tipout',url:'https://vinny4567.github.io/tipout/?v=33',launcher:false},
   {id:3,emoji:'📧',name:'Gmail',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
   {id:5,emoji:'📆',name:'Reservations',url:'https://angelis-backend.onrender.com/reservations-internal.html',launcher:false},
@@ -307,7 +307,7 @@ function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.pars
   // Migration: bump Tipout to latest version
   const tip=c.panels?.find(p=>p.id===2);
   if(tip&&(tip.url||'').match(/vinny4567\.github\.io\/tipout/)){
-    tip.url='https://vinny4567.github.io/tipout/?v=32';
+    tip.url='https://vinny4567.github.io/tipout/?v=33';
   }
   return c}}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}

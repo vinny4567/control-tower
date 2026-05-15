@@ -360,6 +360,23 @@ let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadi
 function findPart(part,mime){if(part.mimeType===mime&&part.body?.data)return part;if(part.parts)for(const p of part.parts){const r=findPart(p,mime);if(r)return r}return null}
 function decodeB64(s){try{return atob((s||'').replace(/-/g,'+').replace(/_/g,'/'))}catch(e){return ''}}
 function extractBody(msg){const h=findPart(msg.payload,'text/html');if(h)return decodeB64(h.body.data);const t=findPart(msg.payload,'text/plain');if(t){const text=decodeB64(t.body.data);return '<pre style="white-space:pre-wrap;font-family:-apple-system,sans-serif;font-size:14px;color:#222;padding:18px;margin:0">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'}return '<div style="padding:24px;color:#888;font-family:-apple-system,sans-serif">(no content)</div>'}
+function extractCustomerEmail(body,senderEmail){
+  if(!body)return null;
+  // Strip HTML to plain text for parsing
+  const text=body.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  const senderAddr=(senderEmail.match(/<([^>]+)>/)?.[1]||senderEmail).toLowerCase().trim();
+  // Look for labeled email fields (Email:, Customer Email:, Reply-To:, From:)
+  const labeled=[
+    /\bcustomer\s*e?mail\s*[:\-]?\s*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+    /\bemail\s*[:\-]\s*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+    /\breply[\s\-]?to\s*[:\-]?\s*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i,
+  ];
+  for(const re of labeled){const m=text.match(re);if(m&&m[1]&&m[1].toLowerCase()!==senderAddr)return m[1]}
+  // Fallback: first email in body that isn't the sender or angelisreservations system addresses
+  const all=text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g)||[];
+  for(const addr of all){const a=addr.toLowerCase();if(a!==senderAddr&&!a.includes('noreply')&&!a.includes('no-reply')&&!a.includes('angelisreservations')&&!a.includes('angeliscatering'))return addr}
+  return null;
+}
 async function loadGmailTab(){
   if(!gmailValid()||gmailTab.loading)return;
   gmailTab.loading=true;
@@ -423,11 +440,12 @@ function b64url(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-
 async function sendCompose(){
   const t=document.getElementById('compose-textarea');if(!t)return;
   const body=t.value.trim();if(!body){t.focus();return}
-  const fwdTo=gmailTab.composing==='forward'?document.getElementById('compose-fwd-to')?.value?.trim():null;
-  if(gmailTab.composing==='forward'&&!fwdTo){alert('Enter a recipient email address');return}
   const e=gmailTab.selectedEmail;if(!e)return;
   const isReply=gmailTab.composing==='reply';
-  const to=isReply?e.from:fwdTo;
+  const replyToInput=isReply?document.getElementById('compose-reply-to')?.value?.trim():null;
+  const fwdTo=!isReply?document.getElementById('compose-fwd-to')?.value?.trim():null;
+  const to=isReply?replyToInput:fwdTo;
+  if(!to){alert(isReply?'Recipient address is empty — please add one':'Enter a recipient email address');return}
   const baseSubject=e.subject.replace(/^(Re:|Fwd:)\s*/i,'').trim();
   const subject=isReply?'Re: '+baseSubject:'Fwd: '+baseSubject;
   const from=gmailUserEmail;
@@ -489,7 +507,15 @@ function gmailDetailHTML(forSinglePane){
 }
 function renderCompose(){
   const e=gmailTab.selectedEmail;const isReply=gmailTab.composing==='reply';
-  const toLine=isReply?`To: <strong>${esc(e.from)}</strong>`:`To: <input id="compose-fwd-to" type="email" placeholder="recipient@example.com" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:13px;outline:none;margin-left:4px;width:260px">`;
+  let suggestedTo=e.from;let hint='';
+  if(isReply){
+    const customer=extractCustomerEmail(e.body,e.from);
+    if(customer){suggestedTo=customer;hint=' <span style="color:var(--accent2);font-size:11px">✓ found customer email in message</span>'}
+  }
+  const inputStyle='background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:6px 10px;color:var(--text);font-size:13px;outline:none;margin-left:4px;flex:1;min-width:0';
+  const toLine=isReply
+    ? `<div style="display:flex;align-items:center;gap:4px">To:<input id="compose-reply-to" type="email" value="${esc(suggestedTo)}" style="${inputStyle}">${hint}</div>`
+    : `<div style="display:flex;align-items:center;gap:4px">To:<input id="compose-fwd-to" type="email" placeholder="recipient@example.com" style="${inputStyle}"></div>`;
   const status=gmailTab.sendStatus?`<span class="gmail-compose-status ${gmailTab.sendStatus.kind}">${esc(gmailTab.sendStatus.text)}</span>`:'<span></span>';
   return `<div class="gmail-compose"><div class="gmail-compose-to">${toLine}</div><textarea id="compose-textarea" placeholder="${isReply?'Type your reply…':'Add a message before the forwarded content…'}"></textarea><div class="gmail-compose-bar">${status}<div style="display:flex;gap:8px"><button class="gmail-action-btn secondary" onclick="cancelCompose()">Cancel</button><button class="gmail-action-btn" onclick="sendCompose()">${isReply?'Send Reply':'Forward'}</button></div></div></div>`;
 }

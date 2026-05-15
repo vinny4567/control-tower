@@ -618,18 +618,19 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
 function dashboardHTML(){
-  // Catering panel URL — use whatever the user configured (defaults to angelis catering domain)
+  // Catering panel URL — append ?view=calendar so the iframe shows just the calendar, no form
   const cateringPanel=cfg.panels.find(p=>p.id===4);
-  const cateringUrl=cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html';
+  const cateringBase=(cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html').split('?')[0].split('#')[0];
+  const cateringCalendarUrl=cateringBase+'?view=calendar';
   return `
     <div class="dashboard">
       <div class="dash-grid">
         <div class="dash-card dash-card-fullwidth" style="grid-column:1/-1;padding:0;overflow:hidden;min-height:720px">
           <div class="dc-head" style="padding:14px 18px 10px;border-bottom:1px solid var(--border)">
             <div class="dc-title"><span class="dc-title-ico">🍱</span>Catering Calendar</div>
-            <a href="${esc(cateringUrl)}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">Open full ↗</a>
+            <a href="${esc(cateringBase)}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">Open full ↗</a>
           </div>
-          <iframe src="${esc(cateringUrl)}" style="width:100%;height:680px;border:none;display:block;background:#fff" allow="storage-access"></iframe>
+          <iframe src="${esc(cateringCalendarUrl)}" style="width:100%;height:680px;border:none;display:block;background:#fff" allow="storage-access"></iframe>
         </div>
         <div class="dash-card">
           <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📅</span>Reservations Today</div><div class="dc-badge green">12</div></div>

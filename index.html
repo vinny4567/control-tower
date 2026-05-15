@@ -137,7 +137,7 @@
     .gmail-msg-date{font-size:12px;color:var(--text-muted);white-space:nowrap}
     .gmail-msg-fromfull{font-size:12px;color:var(--text-dim);margin-top:2px;word-break:break-all}
     .gmail-msg-body{background:#fff}
-    .gmail-msg-body iframe{width:100%;height:200px;border:none;display:block;transition:height .2s ease-out}
+    .gmail-msg-body iframe{width:100%;height:420px;border:none;display:block}
     .gmail-loading,.gmail-empty{padding:60px 24px;text-align:center;color:var(--text-muted);font-size:14px}
     .gmail-signin{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
     .gmail-signin-card{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:360px;text-align:center}
@@ -395,13 +395,6 @@ window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
 let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false,composing:null,sendStatus:null};
-// Listen for height reports from email body iframes so we can auto-fit them to content
-window.addEventListener('message',function(e){
-  if(e.data&&e.data._ct==='h'&&e.data.id&&e.data.h){
-    const el=document.querySelector(`[data-msg-id="${CSS.escape(e.data.id)}"] iframe`);
-    if(el){const h=Math.min(Math.max(parseInt(e.data.h)||200,120),8000);el.style.height=h+'px'}
-  }
-});
 function findPart(part,mime){if(part.mimeType===mime&&part.body?.data)return part;if(part.parts)for(const p of part.parts){const r=findPart(p,mime);if(r)return r}return null}
 function decodeB64(s){try{return atob((s||'').replace(/-/g,'+').replace(/_/g,'/'))}catch(e){return ''}}
 function extractBody(msg){const h=findPart(msg.payload,'text/html');if(h)return decodeB64(h.body.data);const t=findPart(msg.payload,'text/plain');if(t){const text=decodeB64(t.body.data);return '<pre style="white-space:pre-wrap;font-family:-apple-system,sans-serif;font-size:14px;color:#222;padding:18px;margin:0">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'}return '<div style="padding:24px;color:#888;font-family:-apple-system,sans-serif">(no content)</div>'}
@@ -573,11 +566,8 @@ function gmailDetailHTML(forSinglePane){
   const msgs=messages.map(m=>{
     const fromAddr=(m.from.match(/<([^>]+)>/)?.[1]||m.from).toLowerCase().trim();
     const isSent=userLow&&fromAddr===userLow;
-    // Inject a script that reports content height to the parent so iframe auto-resizes to fit
-    const heightScript=`<script>(function(){var id=${JSON.stringify(m.id)};function r(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)+24;parent.postMessage({_ct:'h',id:id,h:h},'*')}catch(e){}}r();window.addEventListener('load',r);setTimeout(r,150);setTimeout(r,800);setTimeout(r,2000);var imgs=document.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(!imgs[i].complete){imgs[i].addEventListener('load',r);imgs[i].addEventListener('error',r)}}})();</script>`;
-    const fullBody=(m.body||'')+heightScript;
-    const bodyAttr=fullBody.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    return `<div class="gmail-msg ${isSent?'sent':''}" data-msg-id="${esc(m.id)}"><div class="gmail-msg-head"><div class="gmail-msg-from-line"><span class="gmail-msg-from">${isSent?'You':esc(parseSender(m.from))}</span><span class="gmail-msg-date">${esc(m.date)}</span></div>${isSent?'':`<div class="gmail-msg-fromfull">${esc(m.from)}</div>`}</div><div class="gmail-msg-body"><iframe srcdoc="${bodyAttr}" sandbox="allow-scripts"></iframe></div></div>`;
+    const bodyAttr=(m.body||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<div class="gmail-msg ${isSent?'sent':''}"><div class="gmail-msg-head"><div class="gmail-msg-from-line"><span class="gmail-msg-from">${isSent?'You':esc(parseSender(m.from))}</span><span class="gmail-msg-date">${esc(m.date)}</span></div>${isSent?'':`<div class="gmail-msg-fromfull">${esc(m.from)}</div>`}</div><div class="gmail-msg-body"><iframe srcdoc="${bodyAttr}" sandbox=""></iframe></div></div>`;
   }).join('');
   return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-thread">${subjectBar}${msgs}</div></div>${composeUI}</div>`;
 }

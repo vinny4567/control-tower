@@ -368,6 +368,14 @@ async function gmailPoll(){
   }catch(e){console.error('gmail poll',e)}
 }
 function startGmailPolling(){if(gmailPollTimer)return;gmailPoll();gmailPollTimer=setInterval(gmailPoll,15000)}
+// When app returns to foreground (iOS suspends timers when backgrounded), force a fresh check
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&gmailValid()){
+    gmailPoll();
+    if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
+    if(activeTab===DASH)fetchGmail();
+  }
+});
 window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
@@ -615,7 +623,14 @@ function dashboardHTML(){
   `;
 }
 function renderAll(){renderTabs();renderViewport()}
-function switchTab(id){activeTab=id;cfg.activeTab=id;saveCfg();renderAll();if(id===3&&gmailValid()&&gmailTab.emails===null&&!gmailTab.loading)loadGmailTab()}
+function switchTab(id){
+  activeTab=id;cfg.activeTab=id;saveCfg();renderAll();
+  if(gmailValid()){
+    if(id===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
+    if(id===DASH)fetchGmail();
+    gmailPoll();
+  }
+}
 function reloadActive(){const f=document.querySelector('#viewport iframe');if(f)f.src=f.src}
 function popoutActive(){doOpen(activeTab)}
 function bodyHTML(p){

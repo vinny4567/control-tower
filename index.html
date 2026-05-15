@@ -618,20 +618,6 @@ if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(
 function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
 function dashboardHTML(){
-  // Inbox card content depends on Gmail sign-in state
-  let inboxBody,inboxBadge='',inboxFooter='';
-  if(!gmailValid()){
-    inboxBody=`<div class="email-signin"><p>Connect your Gmail to see real emails coming in.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div>`;
-  }else if(gmailEmails===null){
-    inboxBody=`<div class="email-empty">Loading inbox…</div>`;
-  }else if(gmailEmails.length===0){
-    inboxBody=`<div class="email-empty">No recent emails in your inbox.</div>`;
-  }else{
-    const rows=gmailEmails.map(e=>`<div class="email-item ${e.unread?'unread':''}"><div class="email-sender">${e.unread?'<span class="email-dot"></span>':''}${esc(e.sender)}</div><div class="email-subject">${esc(e.subject)}</div><div class="email-time">${e.time}</div></div>`).join('');
-    inboxBody=`<div class="email-list">${rows}</div>`;
-    const unreadCount=gmailEmails.filter(e=>e.unread).length;
-    if(unreadCount>0)inboxBadge=`<div class="dc-badge">${unreadCount} new</div>`;
-  }
   // Catering panel URL — use whatever the user configured (defaults to angelis catering domain)
   const cateringPanel=cfg.panels.find(p=>p.id===4);
   const cateringUrl=cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html';
@@ -644,11 +630,6 @@ function dashboardHTML(){
             <a href="${esc(cateringUrl)}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">Open full ↗</a>
           </div>
           <iframe src="${esc(cateringUrl)}" style="width:100%;height:680px;border:none;display:block;background:#fff" allow="storage-access"></iframe>
-        </div>
-        <div class="dash-card wide">
-          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📧</span>Inbox</div>${inboxBadge}</div>
-          ${inboxBody}
-          ${inboxFooter}
         </div>
         <div class="dash-card">
           <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📅</span>Reservations Today</div><div class="dc-badge green">12</div></div>

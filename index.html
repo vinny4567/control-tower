@@ -291,8 +291,12 @@ const DEFAULT_PANELS=[
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
   // Migration: flip Online Orders from launcher to iframe to test embedding
   const oo=c.panels?.find(p=>p.id===6);if(oo&&oo.launcher===true&&(oo.url||'').includes('tryotter.com'))oo.launcher=false;
-  // Migration: update Schedule URL from localhost to deployed Render URL
-  const sch=c.panels?.find(p=>p.id===1);if(sch&&(sch.url||'').includes('localhost'))sch.url='https://restaurant-scheduler-hh5e.onrender.com/login';
+  // Migration: update Schedule URL from localhost to deployed Render URL + force iframe mode (token auth now works in PWA)
+  const sch=c.panels?.find(p=>p.id===1);
+  if(sch){
+    if((sch.url||'').includes('localhost'))sch.url='https://restaurant-scheduler-hh5e.onrender.com/login';
+    if(sch.launcher===true)sch.launcher=false;
+  }
   return c}}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
 const DASH='dashboard';

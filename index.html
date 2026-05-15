@@ -359,26 +359,23 @@ async function fetchGmail(){
   gmailLoading=false;
   if(activeTab===DASH)renderViewport();
 }
-// Background polling — checks for new emails every 15s using Gmail's history API
-// (lightweight; only does work if something actually changed)
-let gmailHistoryId=null,gmailPollTimer=null;
+// Background polling — checks for new emails every 5s by comparing the top message ID
+let gmailPollTimer=null;
 async function gmailPoll(){
   if(!gmailValid())return;
   try{
-    if(!gmailHistoryId){
-      const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile',{headers:{Authorization:'Bearer '+gmailToken.token}});
-      if(r.ok){const p=await r.json();gmailHistoryId=p.historyId}
-      return;
-    }
-    const url=`https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${gmailHistoryId}&historyTypes=messageAdded&historyTypes=labelAdded&historyTypes=labelRemoved&labelId=INBOX`;
-    const r=await fetch(url,{headers:{Authorization:'Bearer '+gmailToken.token}});
-    if(!r.ok){if(r.status===404)gmailHistoryId=null;return}
+    // Just fetch the top message ID (cheap — 5 units)
+    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=1&labelIds=INBOX',{headers:{Authorization:'Bearer '+gmailToken.token}});
+    if(!r.ok)return;
     const data=await r.json();
-    if(data.historyId)gmailHistoryId=data.historyId;
-    if(data.history&&data.history.length>0){
+    const latestId=data.messages?.[0]?.id;
+    if(!latestId)return;
+    // Compare to whichever inbox state is loaded (dashboard or gmail tab)
+    const currentTopId=(gmailEmails&&gmailEmails[0]?.id)||(gmailTab.emails&&gmailTab.emails[0]?.id);
+    if(latestId!==currentTopId){
       // Something changed — refresh dashboard always, refresh Gmail tab only if user isn't reading an email
       fetchGmail();
-      if(activeTab===3&&!gmailTab.selectedEmail)loadGmailTab();
+      if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
     }
   }catch(e){console.error('gmail poll',e)}
 }

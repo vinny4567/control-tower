@@ -20,7 +20,7 @@
     body.light .launcher:active{background:var(--surface2)}
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
-    #app-header{height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 max(14px,env(safe-area-inset-left)) 0 max(14px,env(safe-area-inset-right));gap:12px;position:fixed;top:0;left:0;right:0;z-index:100;box-shadow:0 1px 12px rgba(0,0,0,.4)}
+    #app-header{height:calc(var(--header-h) + env(safe-area-inset-top));padding-top:env(safe-area-inset-top);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));gap:12px;position:fixed;top:0;left:0;right:0;z-index:100;box-shadow:0 1px 12px rgba(0,0,0,.4)}
     .brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.3px;white-space:nowrap}
     .live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:blink 2.5s ease-in-out infinite}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
@@ -33,7 +33,7 @@
     .layout-btn.active{background:var(--accent);color:#fff}
     .icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);cursor:pointer;font-size:14px;transition:all .12s}
     .icon-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent)}
-    #tab-bar{position:fixed;top:var(--header-h);left:0;right:0;height:46px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch;z-index:90;box-shadow:0 1px 6px rgba(0,0,0,.2)}
+    #tab-bar{position:fixed;top:calc(var(--header-h) + env(safe-area-inset-top));left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch;z-index:90;box-shadow:0 1px 6px rgba(0,0,0,.2)}
     .tab-list{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
     .tab-list::-webkit-scrollbar{display:none}
     .tab{padding:0 20px;display:flex;align-items:center;font-size:14px;font-weight:600;color:var(--text-dim);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:all .15s;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -41,8 +41,9 @@
     .tab.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--bg)}
     body.light .tab.active{background:var(--surface2)}
     .tab-add{padding:0 18px;color:var(--text-muted);font-size:18px;font-weight:400}
-    .tab-actions{display:flex;align-items:center;padding:0 8px;gap:2px;border-left:1px solid var(--border)}
-    #viewport{position:fixed;top:calc(var(--header-h) + 46px);left:0;right:0;bottom:env(safe-area-inset-bottom,0);background:var(--bg);overflow:hidden}
+    .tab-actions{display:flex;align-items:center;padding:0 10px;gap:4px;border-left:1px solid var(--border)}
+    .tab-actions .pbtn{width:44px;height:44px;font-size:20px;border-radius:8px}
+    #viewport{position:fixed;top:calc(var(--header-h) + env(safe-area-inset-top) + 56px);left:0;right:0;bottom:env(safe-area-inset-bottom,0);background:var(--bg);overflow:hidden}
     #viewport iframe{width:100%;height:100%;border:none;display:block}
     #viewport .launcher,#viewport .empty-state{width:100%;height:100%}
     /* DASHBOARD */
@@ -91,7 +92,7 @@
     .gmail-title{font-size:16px;font-weight:700;flex:1;color:var(--text)}
     .gmail-back{background:transparent;border:none;color:var(--accent);cursor:pointer;font-size:14px;font-weight:600;padding:8px 12px;margin-left:-8px;border-radius:6px}
     .gmail-back:hover{background:var(--surface2)}
-    .gmail-refresh{background:transparent;border:1px solid var(--border);width:32px;height:32px;border-radius:8px;cursor:pointer;color:var(--text-dim);font-size:14px;display:flex;align-items:center;justify-content:center}
+    .gmail-refresh{background:transparent;border:1px solid var(--border);width:42px;height:42px;border-radius:10px;cursor:pointer;color:var(--text-dim);font-size:20px;display:flex;align-items:center;justify-content:center}
     .gmail-refresh:hover{background:var(--surface2);color:var(--text)}
     .gmail-list-tab{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     .gmail-row{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
@@ -236,7 +237,7 @@
 <body>
 <header id="app-header">
   <div class="brand"><span>🗼</span><span>Angeli's Control Tower</span><div class="live-dot"></div></div>
-  <div id="clock"></div>
+  <div style="flex:1"></div>
   <div class="header-right">
     <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀️</button>
     <button class="icon-btn" onclick="openSettings()" title="Manage panels">⚙</button>
@@ -578,9 +579,6 @@ function renderCompose(){
 }
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
-const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function tick(){const n=new Date();let h=n.getHours();const m=String(n.getMinutes()).padStart(2,'0'),a=h>=12?'PM':'AM';h=h%12||12;document.getElementById('clock').textContent=`${DAYS[n.getDay()]} ${MONS[n.getMonth()]} ${n.getDate()}  ·  ${h}:${m} ${a}`}
-tick();setInterval(tick,1000);
 function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p)}
 function dashboardHTML(){

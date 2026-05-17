@@ -330,6 +330,7 @@ function initGmail(){
     client_id:GMAIL_CLIENT_ID,
     scope:GMAIL_SCOPE,
     callback:(resp)=>{
+      gmailRefreshing=false;
       if(resp.error){console.error('gmail auth error',resp);return}
       gmailSaveToken({token:resp.access_token,expires:Date.now()+(resp.expires_in||3600)*1000});
       fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling();
@@ -339,7 +340,17 @@ function initGmail(){
 }
 function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken({prompt:'consent'})}
 // Silent refresh — try to get a new token without user interaction (works if user is still signed in to Google)
-function gmailSilentRefresh(){if(!gmailTokenClient)return;try{gmailTokenClient.requestAccessToken({prompt:''})}catch(e){}}
+let gmailRefreshing=false,gmailLastRefreshAt=0;
+function gmailSilentRefresh(){
+  if(!gmailTokenClient||gmailRefreshing)return;
+  // Don't refresh more than once every 60 seconds — prevents request storms
+  if(Date.now()-gmailLastRefreshAt<60000)return;
+  gmailRefreshing=true;
+  gmailLastRefreshAt=Date.now();
+  try{gmailTokenClient.requestAccessToken({prompt:''})}catch(e){gmailRefreshing=false}
+  // Safety release in case the callback never fires
+  setTimeout(()=>{gmailRefreshing=false},30000);
+}
 function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
 function parseSender(from){const m=from.match(/^"?([^"<]*)"?\s*<.+>$/);return m?m[1].trim():from.split('@')[0]||from}
 function relTime(ts){const d=Date.now()-ts,min=Math.floor(d/60000);if(min<1)return 'now';if(min<60)return min+'m';const h=Math.floor(min/60);if(h<24)return h+'h';const dy=Math.floor(h/24);return dy+'d'}

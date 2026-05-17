@@ -379,6 +379,7 @@ async function fetchGmail(){
 }
 // Background polling — checks for new emails every 5s by comparing the top message ID
 let gmailPollTimer=null;
+let gmailLastSyncAt=0;
 async function gmailPoll(){
   // If we have a token but it's expiring soon (<5 min), silently refresh in the background
   if(gmailToken&&gmailToken.expires-Date.now()<300000&&gmailToken.expires-Date.now()>0){
@@ -386,19 +387,27 @@ async function gmailPoll(){
   }
   if(!gmailValid())return;
   try{
-    // Just fetch the top message ID (cheap — 5 units)
-    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=1&labelIds=INBOX',{headers:{Authorization:'Bearer '+gmailToken.token}});
+    // Fetch top 5 message IDs — checks the top 5 instead of just 1, in case Gmail indexes new mail with a brief delay
+    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&labelIds=INBOX',{headers:{Authorization:'Bearer '+gmailToken.token}});
     if(!r.ok)return;
     const data=await r.json();
-    const latestId=data.messages?.[0]?.id;
-    if(!latestId)return;
-    // Compare to whichever inbox state is loaded (dashboard or gmail tab)
-    const currentTopId=(gmailEmails&&gmailEmails[0]?.id)||(gmailTab.emails&&gmailTab.emails[0]?.id);
-    if(latestId!==currentTopId){
-      // Something changed — refresh dashboard always, refresh Gmail tab only if user isn't reading an email
+    const apiIds=(data.messages||[]).map(m=>m.id);
+    if(!apiIds.length)return;
+    gmailLastSyncAt=Date.now();
+    // Build a set of IDs we currently know about (from dashboard fetchGmail OR gmail tab)
+    const knownIds=new Set([
+      ...((gmailEmails||[]).map(e=>e.id)),
+      ...((gmailTab.emails||[]).map(e=>e.id)),
+    ]);
+    // If ANY of the top 5 from API isn't in our known set, refresh
+    const hasNew=apiIds.some(id=>!knownIds.has(id));
+    if(hasNew){
       fetchGmail();
       if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
     }
+    // Update sync indicator if visible
+    const indicator=document.querySelector('.gmail-live');
+    if(indicator)indicator.setAttribute('title',`Last sync: ${new Date(gmailLastSyncAt).toLocaleTimeString()}`);
   }catch(e){console.error('gmail poll',e)}
 }
 function startGmailPolling(){

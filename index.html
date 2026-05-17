@@ -338,6 +338,8 @@ function initGmail(){
   if(gmailValid()){fetchGmailProfile();fetchGmail();startGmailPolling()}
 }
 function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken({prompt:'consent'})}
+// Silent refresh — try to get a new token without user interaction (works if user is still signed in to Google)
+function gmailSilentRefresh(){if(!gmailTokenClient)return;try{gmailTokenClient.requestAccessToken({prompt:''})}catch(e){}}
 function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
 function parseSender(from){const m=from.match(/^"?([^"<]*)"?\s*<.+>$/);return m?m[1].trim():from.split('@')[0]||from}
 function relTime(ts){const d=Date.now()-ts,min=Math.floor(d/60000);if(min<1)return 'now';if(min<60)return min+'m';const h=Math.floor(min/60);if(h<24)return h+'h';const dy=Math.floor(h/24);return dy+'d'}
@@ -367,6 +369,10 @@ async function fetchGmail(){
 // Background polling — checks for new emails every 5s by comparing the top message ID
 let gmailPollTimer=null;
 async function gmailPoll(){
+  // If we have a token but it's expiring soon (<5 min), silently refresh in the background
+  if(gmailToken&&gmailToken.expires-Date.now()<300000&&gmailToken.expires-Date.now()>0){
+    gmailSilentRefresh();
+  }
   if(!gmailValid())return;
   try{
     // Just fetch the top message ID (cheap — 5 units)

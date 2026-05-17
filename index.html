@@ -387,8 +387,8 @@ async function gmailPoll(){
   }
   if(!gmailValid())return;
   try{
-    // Fetch top 5 message IDs — checks the top 5 instead of just 1, in case Gmail indexes new mail with a brief delay
-    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5&labelIds=INBOX',{headers:{Authorization:'Bearer '+gmailToken.token}});
+    // Fetch top 30 message IDs — checks the same window we display, so any new arrival is caught
+    const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&labelIds=INBOX',{headers:{Authorization:'Bearer '+gmailToken.token}});
     if(!r.ok)return;
     const data=await r.json();
     const apiIds=(data.messages||[]).map(m=>m.id);

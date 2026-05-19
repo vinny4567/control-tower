@@ -341,7 +341,15 @@ function initGmail(){
       fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling();
     }
   });
-  if(gmailValid()){fetchGmailProfile();fetchGmail();startGmailPolling()}
+  // If we have a stored token (valid OR expired), try to use it or refresh it silently
+  if(gmailToken){
+    if(gmailValid()){
+      fetchGmailProfile();fetchGmail();startGmailPolling();
+    }else{
+      // Token expired while app was closed — get a new one without prompting
+      gmailSilentRefresh();
+    }
+  }
 }
 function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken({prompt:'consent'})}
 // Silent refresh — try to get a new token without user interaction (works if user is still signed in to Google)
@@ -386,8 +394,8 @@ async function fetchGmail(){
 let gmailPollTimer=null;
 let gmailLastSyncAt=0;
 async function gmailPoll(){
-  // If we have a token but it's expiring soon (<5 min), silently refresh in the background
-  if(gmailToken&&gmailToken.expires-Date.now()<300000&&gmailToken.expires-Date.now()>0){
+  // If we have a token but it's expiring soon (<5 min) OR already expired, silently refresh in the background
+  if(gmailToken&&gmailToken.expires-Date.now()<300000){
     gmailSilentRefresh();
   }
   if(!gmailValid())return;
@@ -432,7 +440,13 @@ function startGmailPolling(){
 }
 // When app returns to foreground (iOS suspends timers when backgrounded), force a fresh check
 document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden&&gmailValid()){
+  if(document.hidden)return;
+  // If token expired while we were away, silently refresh first
+  if(gmailToken&&!gmailValid()){
+    gmailSilentRefresh();
+    return;
+  }
+  if(gmailValid()){
     gmailPoll();
     if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
     if(activeTab===DASH)fetchGmail();

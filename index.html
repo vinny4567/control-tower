@@ -292,11 +292,11 @@ const DEFAULT_PANELS=[
   {id:3,emoji:'📧',name:'Reservations',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
   {id:5,emoji:'🗺️',name:'Map',url:'https://angelis-backend.onrender.com/reservations-internal.html',launcher:false},
-  {id:6,emoji:'🛵',name:'Online Orders',url:'https://app.tryotter.com/orders',launcher:false,iosScheme:'tryotter://'},
+  {id:6,emoji:'🛵',name:'Online Orders',url:'https://app.tryotter.com/orders',launcher:true,iosScheme:'tryotter://'},
 ];
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
-  // Migration: flip Online Orders from launcher to iframe to test embedding
-  const oo=c.panels?.find(p=>p.id===6);if(oo&&oo.launcher===true&&(oo.url||'').includes('tryotter.com'))oo.launcher=false;
+  // Migration: Online Orders must be launcher mode — Otter blocks iframe embedding
+  const oo=c.panels?.find(p=>p.id===6);if(oo&&(oo.url||'').includes('tryotter.com'))oo.launcher=true;
   // Migration: update Schedule URL from localhost to deployed Render URL + force iframe mode (token auth now works in PWA)
   const sch=c.panels?.find(p=>p.id===1);
   if(sch){

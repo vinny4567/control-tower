@@ -64,6 +64,20 @@
     .dc-row:last-child{border-bottom:none}
     .dc-row-label{font-size:13px;color:var(--text);font-weight:600}
     .dc-row-val{font-size:13px;color:var(--text-dim);font-weight:500}
+    /* Catering orders list */
+    .co-list{max-height:560px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .co-row{display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
+    .co-row:hover{background:var(--bg)}
+    .co-date{min-width:74px;flex-shrink:0;font-weight:800;color:var(--text);font-size:13px;display:flex;flex-direction:column;gap:2px}
+    .co-time{font-size:11px;color:var(--text-dim);font-weight:600}
+    .co-name{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .co-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;text-align:right}
+    .co-badge{display:inline-block;background:var(--accent);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.04em}
+    .co-badge.delivery{background:var(--accent2)}
+    .co-sub{font-size:12px;color:var(--text-dim)}
+    .co-sub strong{color:var(--text)}
+    .co-items{padding:10px 16px 14px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;background:var(--bg);border-bottom:1px solid var(--border);line-height:1.5;font-family:'SF Mono','Fira Mono',monospace}
+    .co-empty{padding:44px 16px;text-align:center;color:var(--text-muted);font-size:13px}
     /* Email card */
     .email-list{display:flex;flex-direction:column;gap:1px;margin:0 -18px -18px;border-top:1px solid var(--border)}
     .email-item{padding:11px 18px;display:grid;grid-template-columns:100px 1fr auto;gap:12px;align-items:baseline;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
@@ -687,20 +701,57 @@ function renderCompose(){
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
 function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
+// ── CATERING ORDERS ───────────────────────────────────────────────
+const CATERING_ORDERS_API='https://order.angeliscatering.com/api/orders';
+let cateringOrders=null;          // fetched order list (null = not loaded yet)
+let cateringExpanded={};          // order id -> true if its items are expanded
+async function loadCateringOrders(){
+  try{
+    const r=await fetch(CATERING_ORDERS_API);
+    if(!r.ok)return;
+    const data=await r.json();
+    cateringOrders=Array.isArray(data)?data:[];
+    if(activeTab===DASH)renderViewport();
+  }catch(e){console.error('catering orders',e)}
+}
+function toggleCateringOrder(id){
+  cateringExpanded[id]=!cateringExpanded[id];
+  const el=document.getElementById('catering-orders-list');
+  if(el)el.innerHTML=cateringOrdersHTML();
+}
+function cateringOrdersHTML(){
+  if(cateringOrders===null)return '<div class="co-empty">Loading orders…</div>';
+  const now=new Date();now.setHours(0,0,0,0);
+  const upcoming=cateringOrders
+    .filter(o=>{const d=new Date(o.eventDateRaw);return !isNaN(d)&&d>=now;})
+    .sort((a,b)=>new Date(a.eventDateRaw)-new Date(b.eventDateRaw));
+  if(upcoming.length===0)return '<div class="co-empty">No upcoming catering orders.</div>';
+  const rows=upcoming.map(o=>{
+    const id=esc(String(o.id||''));
+    const svc=(o.serviceType||'').trim();
+    const svcClass=/deliver/i.test(svc)?'co-badge delivery':'co-badge';
+    const expanded=cateringExpanded[o.id];
+    const items=(o.orderDesc||'').trim();
+    return `<div class="co-row" onclick="toggleCateringOrder('${id}')">
+        <div class="co-date">${esc(o.dateFormatted||'')}<span class="co-time">${esc(o.eventTime||'')}</span></div>
+        <div class="co-name">${esc(o.name||'(no name)')}</div>
+        <div class="co-meta">${svc?`<span class="${svcClass}">${esc(svc)}</span>`:''}<span class="co-sub">${esc(o.guests||'?')} guests · <strong>${esc(o.total||'')}</strong></span></div>
+      </div>${expanded&&items?`<div class="co-items">${esc(items)}</div>`:''}`;
+  }).join('');
+  return `<div class="co-list">${rows}</div>`;
+}
 function dashboardHTML(){
-  // Catering panel URL — append ?view=calendar so the iframe shows just the calendar, no form
   const cateringPanel=cfg.panels.find(p=>p.id===4);
   const cateringBase=(cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html').split('?')[0].split('#')[0];
-  const cateringCalendarUrl=cateringBase+'?view=calendar';
   return `
     <div class="dashboard">
       <div class="dash-grid">
-        <div class="dash-card dash-card-fullwidth" style="grid-column:1/-1;padding:0;overflow:hidden;min-height:480px">
-          <div class="dc-head" style="padding:12px 16px 8px;border-bottom:1px solid var(--border)">
-            <div class="dc-title"><span class="dc-title-ico">🍱</span>Catering Calendar</div>
+        <div class="dash-card dash-card-fullwidth" style="grid-column:1/-1;padding:0;overflow:hidden">
+          <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
+            <div class="dc-title"><span class="dc-title-ico">🍱</span>Upcoming Catering Orders</div>
             <a href="${esc(cateringBase)}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">Open full ↗</a>
           </div>
-          <iframe src="${esc(cateringCalendarUrl)}" style="width:100%;height:440px;border:none;display:block;background:#fff" allow="storage-access"></iframe>
+          <div id="catering-orders-list">${cateringOrdersHTML()}</div>
         </div>
         <div class="dash-card">
           <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📅</span>Reservations Today</div><div class="dc-badge green">12</div></div>
@@ -724,6 +775,7 @@ function dashboardHTML(){
 function renderAll(){renderTabs();renderViewport()}
 function switchTab(id){
   activeTab=id;cfg.activeTab=id;saveCfg();renderAll();
+  if(id===DASH)loadCateringOrders();
   if(gmailValid()){
     if(id===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
     if(id===DASH)fetchGmail();
@@ -797,8 +849,13 @@ function applyTheme(light){document.body.classList.toggle('light',light);documen
 function toggleTheme(){const light=!document.body.classList.contains('light');localStorage.setItem('angeli_tower_theme',light?'light':'dark');applyTheme(light)}
 applyTheme(localStorage.getItem('angeli_tower_theme')==='light');
 renderAll();
-// After Gmail SDK loads, also preload inbox if Gmail tab is active
-window.addEventListener('load',()=>{setTimeout(()=>{if(activeTab===3&&gmailValid()&&gmailTab.emails===null)loadGmailTab()},800)});
+// Preload data for whichever tab is active on launch
+window.addEventListener('load',()=>{setTimeout(()=>{
+  if(activeTab===3&&gmailValid()&&gmailTab.emails===null)loadGmailTab();
+  if(activeTab===DASH)loadCateringOrders();
+},800)});
+// Keep catering orders fresh while the dashboard is open
+setInterval(()=>{if(activeTab===DASH)loadCateringOrders()},60000);
 </script>
 </body>
 </html>

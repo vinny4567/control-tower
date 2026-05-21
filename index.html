@@ -10,7 +10,6 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0b0e14">
   <title>Angeli's Control Tower</title>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root{--bg:#0b0e14;--surface:#141820;--surface2:#1c2130;--border:#252d3d;--accent:#6c63ff;--accent2:#34d399;--text:#e2e8f0;--text-dim:#8892a4;--text-muted:#4a5568;--ph-bg:#111520;--header-h:48px;--ph-h:40px}
     body.light{--bg:#f5f6fa;--surface:#ffffff;--surface2:#eef0f5;--border:#d8dce8;--accent:#6c63ff;--accent2:#10b981;--text:#1a1d2e;--text-dim:#5a6178;--text-muted:#9ba3b8;--ph-bg:#f0f1f6}
@@ -320,51 +319,58 @@ const DASH='dashboard';
 let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
 
 // ── GMAIL ─────────────────────────────────────────────────────────
-const GMAIL_CLIENT_ID='513963645116-3sv5cf73n7pdvd41as25fp1e1gljqdms.apps.googleusercontent.com';
-const GMAIL_SCOPE='https://www.googleapis.com/auth/gmail.modify';
-let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token_v3')||'null')}catch(e){}
+// Server-side Gmail OAuth — the refresh token lives on the scheduler backend, which
+// mints fresh access tokens on demand. This eliminates the iOS-PWA re-sign-in problem
+// (no Google cookies in the browser, so Safari's cookie clearing can't break it).
+const GMAIL_TOKEN_ENDPOINT='https://restaurant-scheduler-hh5e.onrender.com/api/gmail/token';
+const GMAIL_AUTH_ENDPOINT='https://restaurant-scheduler-hh5e.onrender.com/api/gmail/auth';
+const GMAIL_BACKEND_KEY='tipout-roster-key-vinny-7k9m2x4p';
+let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token_v4')||'null')}catch(e){}
 let gmailUserEmail=null;
-let gmailEmails=null,gmailLoading=false,gmailTokenClient=null;
+let gmailEmails=null,gmailLoading=false;
+let gmailConnected=null; // null=unknown, true=connected, false=needs connect
 function gmailValid(){return gmailToken&&gmailToken.expires>Date.now()+30000}
-function gmailSaveToken(t){gmailToken=t;localStorage.setItem('gmail_token_v3',JSON.stringify(t))}
-function gmailClearToken(){gmailToken=null;gmailEmails=null;gmailUserEmail=null;localStorage.removeItem('gmail_token_v3');localStorage.removeItem('gmail_token')}
+function gmailSaveToken(t){gmailToken=t;try{localStorage.setItem('gmail_token_v4',JSON.stringify(t))}catch(e){}}
+function gmailClearToken(){gmailToken=null;gmailEmails=null;gmailUserEmail=null;try{localStorage.removeItem('gmail_token_v4');localStorage.removeItem('gmail_token_v3');localStorage.removeItem('gmail_token')}catch(e){}}
 async function fetchGmailProfile(){if(!gmailValid())return;try{const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile',{headers:{Authorization:'Bearer '+gmailToken.token}});if(r.ok){const p=await r.json();gmailUserEmail=p.emailAddress}}catch(e){}}
-function initGmail(){
-  if(!window.google?.accounts?.oauth2){setTimeout(initGmail,200);return}
-  gmailTokenClient=google.accounts.oauth2.initTokenClient({
-    client_id:GMAIL_CLIENT_ID,
-    scope:GMAIL_SCOPE,
-    callback:(resp)=>{
-      gmailRefreshing=false;
-      if(resp.error){console.error('gmail auth error',resp);return}
-      gmailSaveToken({token:resp.access_token,expires:Date.now()+(resp.expires_in||3600)*1000});
-      fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling();
-    }
-  });
-  // If we have a stored token (valid OR expired), try to use it or refresh it silently
-  if(gmailToken){
-    if(gmailValid()){
-      fetchGmailProfile();fetchGmail();startGmailPolling();
-    }else{
-      // Token expired while app was closed — get a new one without prompting
-      gmailSilentRefresh();
-    }
-  }
-}
-function gmailSignIn(){if(!gmailTokenClient){alert('Google Sign-In not loaded yet — try again in a moment.');return}gmailTokenClient.requestAccessToken({prompt:'consent'})}
-// Silent refresh — try to get a new token without user interaction (works if user is still signed in to Google)
-let gmailRefreshing=false,gmailLastRefreshAt=0;
-function gmailSilentRefresh(){
-  if(!gmailTokenClient||gmailRefreshing)return;
-  // Don't refresh more than once every 60 seconds — prevents request storms
-  if(Date.now()-gmailLastRefreshAt<60000)return;
+// Fetch a fresh access token from our backend (which holds the long-lived refresh token)
+let gmailRefreshing=false;
+async function gmailRefreshFromBackend(){
+  if(gmailRefreshing)return gmailValid();
   gmailRefreshing=true;
-  gmailLastRefreshAt=Date.now();
-  try{gmailTokenClient.requestAccessToken({prompt:''})}catch(e){gmailRefreshing=false}
-  // Safety release in case the callback never fires
-  setTimeout(()=>{gmailRefreshing=false},30000);
+  try{
+    const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(GMAIL_BACKEND_KEY));
+    if(r.status===404){gmailConnected=false;gmailClearToken();return false}
+    if(!r.ok)return gmailValid();
+    const data=await r.json();
+    if(data.access_token){
+      gmailSaveToken({token:data.access_token,expires:Date.now()+(data.expires_in||3600)*1000});
+      gmailConnected=true;
+      return true;
+    }
+  }catch(e){console.error('gmail token fetch',e)}
+  finally{gmailRefreshing=false}
+  return gmailValid();
 }
-function gmailSignOut(){gmailClearToken();if(activeTab===DASH)renderViewport()}
+// Alias for existing call sites (poll, visibility handler) — refreshes then updates UI
+function gmailSilentRefresh(){gmailRefreshFromBackend().then(ok=>{if(ok){fetchGmailProfile();if(activeTab===DASH)fetchGmail();if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab()}})}
+async function initGmail(){
+  const ok=await gmailRefreshFromBackend();
+  if(ok){fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling()}
+  renderViewport();
+}
+function gmailSignIn(){
+  // Open the server-side OAuth flow; poll the backend until the refresh token lands
+  window.open(GMAIL_AUTH_ENDPOINT,'_blank');
+  let tries=0;
+  const iv=setInterval(async()=>{
+    tries++;
+    const ok=await gmailRefreshFromBackend();
+    if(ok){clearInterval(iv);fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling();renderViewport()}
+    if(tries>40)clearInterval(iv);
+  },3000);
+}
+function gmailSignOut(){gmailClearToken();gmailConnected=false;if(activeTab===DASH||activeTab===3)renderViewport()}
 function parseSender(from){const m=from.match(/^"?([^"<]*)"?\s*<.+>$/);return m?m[1].trim():from.split('@')[0]||from}
 function relTime(ts){const d=Date.now()-ts,min=Math.floor(d/60000);if(min<1)return 'now';if(min<60)return min+'m';const h=Math.floor(min/60);if(h<24)return h+'h';const dy=Math.floor(h/24);return dy+'d'}
 async function fetchGmail(){

@@ -287,7 +287,7 @@
 const KEY='angeli_tower_v2';
 function defaultLayout(){return window.innerWidth<1280?2:3}
 const DEFAULT_PANELS=[
-  {id:1,emoji:'📅',name:'Schedule',url:'https://restaurant-scheduler-hh5e.onrender.com/login',launcher:false},
+  {id:1,emoji:'📅',name:'Schedule',url:'https://restaurant-scheduler-hh5e.onrender.com/dashboard',launcher:false},
   {id:2,emoji:'💰',name:'Tipout',url:'https://vinny4567.github.io/tipout/?v=35',launcher:false},
   {id:3,emoji:'📧',name:'Reservations',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
@@ -297,10 +297,12 @@ const DEFAULT_PANELS=[
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
   // Migration: Online Orders must be launcher mode — Otter blocks iframe embedding
   const oo=c.panels?.find(p=>p.id===6);if(oo&&(oo.url||'').includes('tryotter.com'))oo.launcher=true;
-  // Migration: update Schedule URL from localhost to deployed Render URL + force iframe mode (token auth now works in PWA)
+  // Migration: Schedule panel — point at /dashboard (token injection lands the user straight in)
   const sch=c.panels?.find(p=>p.id===1);
   if(sch){
-    if((sch.url||'').includes('localhost'))sch.url='https://restaurant-scheduler-hh5e.onrender.com/login';
+    if((sch.url||'').includes('restaurant-scheduler')||(sch.url||'').includes('localhost')){
+      sch.url='https://restaurant-scheduler-hh5e.onrender.com/dashboard';
+    }
     if(sch.launcher===true)sch.launcher=false;
   }
   // Migration: bump Tipout to latest version
@@ -317,6 +319,18 @@ function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.pars
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
 const DASH='dashboard';
 let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
+
+// ── SCHEDULER TOKEN BRIDGE ─────────────────────────────────────────
+// The Schedule iframe (3rd-party context) loses its login storage every ~7 days on iOS.
+// Fix: when the user logs into the Schedule, it postMessages its token up to us. We store
+// it in OUR localStorage (first-party — never wiped) and re-inject it into the iframe URL
+// on every load. The iframe stays logged in forever.
+window.addEventListener('message',function(e){
+  if(e.origin!=='https://restaurant-scheduler-hh5e.onrender.com')return;
+  if(e.data&&e.data.type==='scheduler-token'&&e.data.token){
+    try{localStorage.setItem('ct_scheduler_token',e.data.token)}catch(err){}
+  }
+});
 
 // ── GMAIL ─────────────────────────────────────────────────────────
 // Server-side Gmail OAuth — the refresh token lives on the scheduler backend, which
@@ -723,7 +737,14 @@ function bodyHTML(p){
   if(p.id===3||(p.url||'').includes('mail.google.com')){return gmailMailboxHTML()}
   if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}
   if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;
-  return `<iframe src="${esc(p.url)}" allow="storage-access fullscreen"></iframe>`
+  // Schedule panel — inject the stored auth token into the iframe URL so it stays logged in
+  // (the iframe's own storage gets wiped by iOS every 7 days; this re-supplies the token each load)
+  let src=p.url;
+  if((p.url||'').includes('restaurant-scheduler')){
+    let tok='';try{tok=localStorage.getItem('ct_scheduler_token')||''}catch(e){}
+    if(tok)src=p.url.split('#')[0]+'#ct_token='+encodeURIComponent(tok);
+  }
+  return `<iframe src="${esc(src)}" allow="storage-access fullscreen"></iframe>`
 }
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function doReload(id){const f=document.querySelector(`#body-${id} iframe`);if(f)f.src=f.src}

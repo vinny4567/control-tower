@@ -64,17 +64,17 @@
     .dc-row:last-child{border-bottom:none}
     .dc-row-label{font-size:13px;color:var(--text);font-weight:600}
     .dc-row-val{font-size:13px;color:var(--text-dim);font-weight:500}
-    /* Catering orders list */
+    /* Catering orders list — compact single-line rows */
     .co-list{max-height:560px;overflow-y:auto;-webkit-overflow-scrolling:touch}
-    .co-row{display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
+    .co-row{display:flex;align-items:center;gap:14px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
     .co-row:hover{background:var(--bg)}
-    .co-date{min-width:96px;flex-shrink:0;font-weight:800;color:var(--text);font-size:13px;display:flex;flex-direction:column;gap:3px}
-    .co-time{font-size:16px;color:var(--text);font-weight:700}
+    .co-when{flex-shrink:0;font-size:13px;color:var(--text-dim);font-weight:600;white-space:nowrap}
+    .co-when b{color:var(--text);font-size:15px;font-weight:800}
     .co-name{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .co-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;text-align:right}
+    .co-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
     .co-badge{display:inline-block;background:var(--accent);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.04em}
     .co-badge.delivery{background:var(--accent2)}
-    .co-sub{font-size:12px;color:var(--text-dim)}
+    .co-sub{font-size:13px;color:var(--text-dim);white-space:nowrap}
     .co-sub strong{color:var(--text)}
     .co-items{padding:10px 16px 14px;font-size:12px;color:var(--text-dim);white-space:pre-wrap;background:var(--bg);border-bottom:1px solid var(--border);line-height:1.5;font-family:'SF Mono','Fira Mono',monospace}
     .co-empty{padding:44px 16px;text-align:center;color:var(--text-muted);font-size:13px}
@@ -732,10 +732,12 @@ function cateringOrdersHTML(){
     const svcClass=/deliver/i.test(svc)?'co-badge delivery':'co-badge';
     const expanded=cateringExpanded[o.id];
     const items=(o.orderDesc||'').trim();
+    const guests=(o.guests||'').trim();
+    const guestStr=(guests&&guests!=='—'&&guests!=='?')?`${esc(guests)} guests · `:'';
     return `<div class="co-row" onclick="toggleCateringOrder('${id}')">
-        <div class="co-date">${esc(o.dateFormatted||'')}<span class="co-time">${esc(o.eventTime||'')}</span></div>
-        <div class="co-name">${esc(o.name||'(no name)')}</div>
-        <div class="co-meta">${svc?`<span class="${svcClass}">${esc(svc)}</span>`:''}<span class="co-sub">${esc(o.guests||'?')} guests · <strong>${esc(o.total||'')}</strong></span></div>
+        <span class="co-when">${esc(o.dateFormatted||'')} · <b>${esc(o.eventTime||'')}</b></span>
+        <span class="co-name">${esc(o.name||'(no name)')}</span>
+        <span class="co-meta">${svc?`<span class="${svcClass}">${esc(svc)}</span>`:''}<span class="co-sub">${guestStr}<strong>${esc(o.total||'')}</strong></span></span>
       </div>${expanded&&items?`<div class="co-items">${esc(items)}</div>`:''}`;
   }).join('');
   return `<div class="co-list">${rows}</div>`;

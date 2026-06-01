@@ -306,10 +306,15 @@ const DEFAULT_PANELS=[
   {id:3,emoji:'📧',name:'Reservations',url:'https://mail.google.com/mail/u/3/#inbox',launcher:true,iosScheme:'googlegmail://'},
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
   {id:5,emoji:'🗺️',name:'Map',url:'https://angelis-backend.onrender.com/reservations-internal.html',launcher:false},
+  {id:7,emoji:'🥂',name:'Private Party',url:'https://order.angeliscatering.com/parties-internal-form.html',launcher:false},
 ];
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
   // Migration: remove the old Online Orders tab if it exists in saved config
   if(c.panels)c.panels=c.panels.filter(p=>p.id!==6);
+  // Migration: add Private Party tab if missing
+  if(c.panels&&!c.panels.find(p=>p.id===7)){
+    c.panels.push({id:7,emoji:'🥂',name:'Private Party',url:'https://order.angeliscatering.com/parties-internal-form.html',launcher:false});
+  }
   // Migration: Schedule panel — point at /dashboard (token injection lands the user straight in)
   const sch=c.panels?.find(p=>p.id===1);
   if(sch){

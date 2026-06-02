@@ -767,7 +767,10 @@ function renderCompose(){
     ? `<div style="display:flex;align-items:center;gap:4px">To:<input id="compose-reply-to" type="email" value="${esc(suggestedTo)}" style="${inputStyle}">${hint}</div>`
     : `<div style="display:flex;align-items:center;gap:4px">To:<input id="compose-fwd-to" type="email" placeholder="recipient@example.com" style="${inputStyle}"></div>`;
   const status=gmailTab.sendStatus?`<span class="gmail-compose-status ${gmailTab.sendStatus.kind}">${esc(gmailTab.sendStatus.text)}</span>`:'<span></span>';
-  return `<div class="gmail-compose"><div class="gmail-compose-to">${toLine}</div><textarea id="compose-textarea" placeholder="${isReply?'Type your reply…':'Add a message before the forwarded content…'}"></textarea><div class="gmail-compose-bar">${status}<div style="display:flex;gap:8px"><button class="gmail-action-btn secondary" onclick="cancelCompose()">Cancel</button><button class="gmail-action-btn" onclick="sendCompose()">${isReply?'Send Reply':'Forward'}</button></div></div></div>`;
+  // Reservation Confirmation emails get auto-filled with "Confirmed." so you can just tap Send
+  const isReservation=(e.subject||'').toLowerCase().includes('reservation confirmation');
+  const prefill=(isReply&&isReservation)?'Confirmed.':'';
+  return `<div class="gmail-compose"><div class="gmail-compose-to">${toLine}</div><textarea id="compose-textarea" placeholder="${isReply?'Type your reply…':'Add a message before the forwarded content…'}">${esc(prefill)}</textarea><div class="gmail-compose-bar">${status}<div style="display:flex;gap:8px"><button class="gmail-action-btn secondary" onclick="cancelCompose()">Cancel</button><button class="gmail-action-btn" onclick="sendCompose()">${isReply?'Send Reply':'Forward'}</button></div></div></div>`;
 }
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}

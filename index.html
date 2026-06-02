@@ -150,7 +150,7 @@
     .gmail-msg-date{font-size:12px;color:var(--text-muted);white-space:nowrap}
     .gmail-msg-fromfull{font-size:12px;color:var(--text-dim);margin-top:2px;word-break:break-all}
     .gmail-msg-body{background:#fff}
-    .gmail-msg-body iframe{width:100%;height:420px;border:none;display:block}
+    .gmail-msg-body iframe{width:100%;height:300px;border:none;display:block;transition:height .2s ease-out}
     .gmail-loading,.gmail-empty{padding:60px 24px;text-align:center;color:var(--text-muted);font-size:14px}
     .gmail-signin{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
     .gmail-signin-card{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:360px;text-align:center}
@@ -494,6 +494,14 @@ window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
 let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false,composing:null,sendStatus:null};
+// Listen for height reports from email body iframes — auto-grow each iframe to fit its content
+window.addEventListener('message',function(e){
+  if(!e.data||e.data._ct!=='h'||!e.data.id||!e.data.h)return;
+  try{
+    const el=document.querySelector('[data-msg-id="'+CSS.escape(e.data.id)+'"] iframe');
+    if(el){const h=Math.min(Math.max(parseInt(e.data.h)||300,200),12000);el.style.height=h+'px'}
+  }catch(err){}
+});
 // Remember the inbox scroll position so opening/closing an email doesn't kick the list back to the top
 let gmailListScrollPos=0;
 document.addEventListener('scroll',function(e){
@@ -679,8 +687,15 @@ function gmailDetailHTML(forSinglePane){
   const msgs=messages.map(m=>{
     const fromAddr=(m.from.match(/<([^>]+)>/)?.[1]||m.from).toLowerCase().trim();
     const isSent=userLow&&fromAddr===userLow;
-    const bodyAttr=(m.body||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-    return `<div class="gmail-msg ${isSent?'sent':''}"><div class="gmail-msg-head"><div class="gmail-msg-from-line"><span class="gmail-msg-from">${isSent?'You':esc(parseSender(m.from))}</span><span class="gmail-msg-date">${esc(m.date)}</span></div>${isSent?'':`<div class="gmail-msg-fromfull">${esc(m.from)}</div>`}</div><div class="gmail-msg-body"><iframe srcdoc="${bodyAttr}" sandbox=""></iframe></div></div>`;
+    // Inject a tiny script that measures the email's rendered height and reports it
+    // to the parent so we can auto-grow the iframe and show the entire email without scrolling.
+    const heightScript=`<script>(function(){var id=${JSON.stringify(m.id)};function r(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)+24;parent.postMessage({_ct:'h',id:id,h:h},'*')}catch(e){}}r();window.addEventListener('load',r);setTimeout(r,150);setTimeout(r,800);setTimeout(r,2500);var imgs=document.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(!imgs[i].complete){imgs[i].addEventListener('load',r);imgs[i].addEventListener('error',r)}}})();</script>`;
+    const fullBody=(m.body||'')+heightScript;
+    // FULL entity-escape — including < and > — so the outer HTML parser never sees raw <script>
+    // tags inside this attribute (which can confuse Safari). The iframe still decodes everything
+    // back to real HTML when it loads the srcdoc.
+    const bodyAttr=fullBody.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="gmail-msg ${isSent?'sent':''}" data-msg-id="${esc(m.id)}"><div class="gmail-msg-head"><div class="gmail-msg-from-line"><span class="gmail-msg-from">${isSent?'You':esc(parseSender(m.from))}</span><span class="gmail-msg-date">${esc(m.date)}</span></div>${isSent?'':`<div class="gmail-msg-fromfull">${esc(m.from)}</div>`}</div><div class="gmail-msg-body"><iframe srcdoc="${bodyAttr}" sandbox="allow-scripts"></iframe></div></div>`;
   }).join('');
   return `<div class="gmail-detail"><div class="gmail-detail-scroll"><div class="gmail-thread">${subjectBar}${msgs}</div></div>${composeUI}</div>`;
 }

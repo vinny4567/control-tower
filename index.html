@@ -689,7 +689,9 @@ function gmailDetailHTML(forSinglePane){
     const isSent=userLow&&fromAddr===userLow;
     // Inject a tiny script that measures the email's rendered height and reports it
     // to the parent so we can auto-grow the iframe and show the entire email without scrolling.
-    const heightScript=`<script>(function(){var id=${JSON.stringify(m.id)};function r(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)+24;parent.postMessage({_ct:'h',id:id,h:h},'*')}catch(e){}}r();window.addEventListener('load',r);setTimeout(r,150);setTimeout(r,800);setTimeout(r,2500);var imgs=document.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(!imgs[i].complete){imgs[i].addEventListener('load',r);imgs[i].addEventListener('error',r)}}})();</script>`;
+    // NOTE the `<\/script>` — the backslash prevents the outer index.html <script> tag from being
+    // prematurely terminated by the HTML parser (which scans the raw source, not the JS string value).
+    const heightScript=`<script>(function(){var id=${JSON.stringify(m.id)};function r(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)+24;parent.postMessage({_ct:'h',id:id,h:h},'*')}catch(e){}}r();window.addEventListener('load',r);setTimeout(r,150);setTimeout(r,800);setTimeout(r,2500);var imgs=document.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(!imgs[i].complete){imgs[i].addEventListener('load',r);imgs[i].addEventListener('error',r)}}})();<\/script>`;
     const fullBody=(m.body||'')+heightScript;
     // FULL entity-escape — including < and > — so the outer HTML parser never sees raw <script>
     // tags inside this attribute (which can confuse Safari). The iframe still decodes everything

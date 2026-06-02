@@ -557,13 +557,15 @@ function transformReservationEmail(htmlBody, subject){
   const time=get('time');
   const guests=get('guest count','guests','party');
   const seating=get('preferred seating','seating');
+  const notes=get('notes','comments','special requests','requests','message','additional info','additional notes','anything else');
   // If we couldn't find at least a name and a date, fall back to original
   if(!fullName||(!date&&!time))return htmlBody;
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px;background:#fff;color:#1a1d2e;line-height:1.25">
     <div style="font-size:36px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px">${esc(fullName)}</div>
     <div style="font-size:26px;font-weight:700;color:#6c63ff;margin-bottom:14px">${esc(date)}${time?` · ${esc(time)}`:''}${guests?` · ${esc(guests)} guests`:''}</div>
-    ${phone?`<div style="font-size:24px;font-weight:700"><a href="tel:${esc(phone.replace(/[^0-9+]/g,''))}" style="color:#6c63ff;text-decoration:none">📞 ${esc(phone)}</a></div>`:''}
+    ${phone?`<div style="font-size:24px;font-weight:700;margin-bottom:${notes?'18px':'0'}"><a href="tel:${esc(phone.replace(/[^0-9+]/g,''))}" style="color:#6c63ff;text-decoration:none">📞 ${esc(phone)}</a></div>`:''}
+    ${notes?`<div style="margin-top:18px;padding:14px 16px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Note from customer</div><div style="font-size:17px;color:#1a1d2e;white-space:pre-wrap">${esc(notes)}</div></div>`:''}
   </div>`;
 }
 function extractCustomerEmail(body,senderEmail){

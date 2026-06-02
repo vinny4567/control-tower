@@ -728,7 +728,7 @@ function gmailListHTML(forTwoPane){
 }
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';
-  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn secondary" onclick="startForward()">↪ Forward</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
+  const composeUI=gmailTab.composing?renderCompose():`<div class="gmail-actions"><button class="gmail-action-btn" onclick="startReply()">↩ Reply</button><button class="gmail-action-btn danger" onclick="trashEmail('${e.id}')">🗑 Trash</button></div>`;
   const messages=e.messages&&e.messages.length?e.messages:[{id:e.id,from:e.from,to:e.to,date:e.date,body:e.body,timestamp:0}];
   const userLow=(gmailUserEmail||'').toLowerCase();
   const subjectBar=`<div class="gmail-thread-subject"><span class="subj-text">${esc(e.subject)}</span><button class="gmail-star gmail-detail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)">${e.starred?'★':'☆'}</button></div><div class="gmail-thread-count">${messages.length===1?'1 message':messages.length+' messages'}</div>`;

@@ -561,9 +561,20 @@ function transformReservationEmail(htmlBody, subject){
   // If we couldn't find at least a name and a date, fall back to original
   if(!fullName||(!date&&!time))return htmlBody;
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Color-code the seating area chip — instant recognition of which section
+  let seatingChip='';
+  if(seating){
+    const s=seating.toLowerCase();
+    let bg='#f3f4f6',fg='#374151';
+    if(s.includes('patio')){bg='#dbeafe';fg='#1e40af'}
+    else if(s.includes('bar')){bg='#fef3c7';fg='#92400e'}
+    else if(s.includes('dining')){bg='#d1fae5';fg='#065f46'}
+    seatingChip=`<div style="margin-bottom:14px"><span style="display:inline-block;padding:8px 16px;background:${bg};color:${fg};font-size:20px;font-weight:800;border-radius:10px">${esc(seating)}</span></div>`;
+  }
   return `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px;background:#fff;color:#1a1d2e;line-height:1.25">
     <div style="font-size:36px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px">${esc(fullName)}</div>
     <div style="font-size:26px;font-weight:700;color:#6c63ff;margin-bottom:14px">${esc(date)}${time?` · ${esc(time)}`:''}${guests?` · ${esc(guests)} guests`:''}</div>
+    ${seatingChip}
     ${phone?`<div style="font-size:24px;font-weight:700;margin-bottom:${notes?'18px':'0'}"><a href="tel:${esc(phone.replace(/[^0-9+]/g,''))}" style="color:#6c63ff;text-decoration:none">📞 ${esc(phone)}</a></div>`:''}
     ${notes?`<div style="margin-top:18px;padding:14px 16px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Note from customer</div><div style="font-size:17px;color:#1a1d2e;white-space:pre-wrap">${esc(notes)}</div></div>`:''}
   </div>`;

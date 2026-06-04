@@ -830,10 +830,16 @@ function cateringOrdersHTML(){
 function dashboardHTML(){
   const cateringPanel=cfg.panels.find(p=>p.id===4);
   const cateringBase=(cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html').split('?')[0].split('#')[0];
+  // Kick off the clock ticker (idempotent)
+  setTimeout(startDashboardClock,0);
   return `
     <div class="dashboard">
       <div class="dash-grid">
-        <div class="dash-card dash-card-fullwidth" style="grid-column:span 2;padding:0;overflow:hidden">
+        <div class="dash-card" style="grid-column:span 2;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:220px;gap:6px">
+          <div id="dash-clock-time" style="font-size:84px;font-weight:800;color:var(--text);letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">--:--</div>
+          <div id="dash-clock-date" style="font-size:20px;color:var(--text-dim);font-weight:600">—</div>
+        </div>
+        <div class="dash-card" style="padding:0;overflow:hidden">
           <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
             <div class="dc-title"><span class="dc-title-ico">🍱</span>Upcoming Catering Orders</div>
             <a href="${esc(cateringBase)}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">Open full ↗</a>
@@ -858,6 +864,26 @@ function dashboardHTML(){
       </div>
     </div>
   `;
+}
+// Live clock for the dashboard — ticks every second; harmless when the dash isn't visible
+function startDashboardClock(){
+  if(window.__dashClockTimer)return;
+  const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MONS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function tick(){
+    const t=document.getElementById('dash-clock-time');
+    const d=document.getElementById('dash-clock-date');
+    if(!t||!d)return; // dashboard not in DOM right now
+    const n=new Date();
+    let h=n.getHours();
+    const m=String(n.getMinutes()).padStart(2,'0');
+    const a=h>=12?'PM':'AM';
+    h=h%12||12;
+    t.textContent=h+':'+m+' '+a;
+    d.textContent=DAYS[n.getDay()]+', '+MONS[n.getMonth()]+' '+n.getDate();
+  }
+  tick();
+  window.__dashClockTimer=setInterval(tick,1000);
 }
 function renderAll(){renderTabs();renderViewport()}
 function switchTab(id){

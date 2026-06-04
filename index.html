@@ -832,12 +832,20 @@ function dashboardHTML(){
   const cateringBase=(cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html').split('?')[0].split('#')[0];
   // Kick off the clock ticker (idempotent)
   setTimeout(startDashboardClock,0);
+  // Pre-render the current time + date directly in the HTML so the clock NEVER flashes "--:--"
+  // when the dashboard re-renders during polls
+  const _n=new Date();
+  let _h=_n.getHours();const _m=String(_n.getMinutes()).padStart(2,'0');const _a=_h>=12?'PM':'AM';_h=_h%12||_h===0?12:_h;
+  const _DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const _MONS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const _timeStr=_h+':'+_m+' '+_a;
+  const _dateStr=_DAYS[_n.getDay()]+', '+_MONS[_n.getMonth()]+' '+_n.getDate();
   return `
     <div class="dashboard">
       <div class="dash-grid">
         <div class="dash-card" style="grid-column:span 2;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:120px;padding:14px;gap:2px">
-          <div id="dash-clock-time" style="font-size:110px;font-weight:800;color:var(--text);letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">--:--</div>
-          <div id="dash-clock-date" style="font-size:15px;color:var(--text-dim);font-weight:600">—</div>
+          <div id="dash-clock-time" style="font-size:110px;font-weight:800;color:var(--text);letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums">${_timeStr}</div>
+          <div id="dash-clock-date" style="font-size:15px;color:var(--text-dim);font-weight:600">${_dateStr}</div>
         </div>
         <div class="dash-card" style="padding:0;overflow:hidden">
           <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
@@ -867,7 +875,6 @@ function dashboardHTML(){
 }
 // Live clock for the dashboard — ticks every second; harmless when the dash isn't visible
 function startDashboardClock(){
-  if(window.__dashClockTimer)return;
   const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const MONS=['January','February','March','April','May','June','July','August','September','October','November','December'];
   function tick(){
@@ -882,8 +889,9 @@ function startDashboardClock(){
     t.textContent=h+':'+m+' '+a;
     d.textContent=DAYS[n.getDay()]+', '+MONS[n.getMonth()]+' '+n.getDate();
   }
+  // Always tick immediately so a freshly-rendered clock shows the right time without delay
   tick();
-  window.__dashClockTimer=setInterval(tick,1000);
+  if(!window.__dashClockTimer)window.__dashClockTimer=setInterval(tick,1000);
 }
 function renderAll(){renderTabs();renderViewport()}
 function switchTab(id){

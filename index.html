@@ -916,6 +916,9 @@ function popoutActive(){doOpen(activeTab)}
 // Auto-calculates on every input change.
 function calculatorHTML(){
   setTimeout(updateCalc,0);
+  // Belt-and-suspenders: native <input type="time"> on iOS Safari doesn't reliably fire
+  // 'input' for the AM/PM column on the wheel picker. Poll as a fallback.
+  if(!window.__calcPoll)window.__calcPoll=setInterval(updateCalc,250);
   return `
     <div style="height:100%;overflow:auto;padding:24px 20px;color:var(--text);background:var(--bg)">
       <div style="max-width:680px;margin:0 auto">
@@ -926,17 +929,17 @@ function calculatorHTML(){
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
               <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">Start</label>
-              <input type="time" id="calc-start" oninput="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
+              <input type="time" id="calc-start" oninput="updateCalc()" onchange="updateCalc()" onblur="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
             </div>
             <div>
               <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">End</label>
-              <input type="time" id="calc-end" oninput="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
+              <input type="time" id="calc-end" oninput="updateCalc()" onchange="updateCalc()" onblur="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
             </div>
           </div>
 
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
             <label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px">Break</label>
-            <input type="number" id="calc-break" oninput="updateCalc()" value="0" min="0" max="600" style="width:90px;font-size:16px;padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;font-variant-numeric:tabular-nums">
+            <input type="number" id="calc-break" oninput="updateCalc()" onchange="updateCalc()" value="0" min="0" max="600" style="width:90px;font-size:16px;padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;font-variant-numeric:tabular-nums">
             <span style="font-size:12px;color:var(--text-dim)">minutes (deducted)</span>
           </div>
 

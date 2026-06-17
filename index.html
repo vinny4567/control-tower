@@ -913,17 +913,16 @@ function popoutActive(){doOpen(activeTab)}
 
 // ── TIME CALCULATOR ────────────────────────────────────────────────
 // Payroll-style duration calculator: start + end → hours, minutes, decimal.
-// Supports an optional break deduction and a running "Total" list of multiple shifts.
-let calcShifts=[]; // [{start, end, breakMin, minutes}]
+// Auto-calculates on every input change.
 function calculatorHTML(){
-  setTimeout(()=>{renderCalcShifts();updateCalc()},0);
+  setTimeout(updateCalc,0);
   return `
     <div style="height:100%;overflow:auto;padding:24px 20px;color:var(--text);background:var(--bg)">
       <div style="max-width:680px;margin:0 auto">
         <h2 style="margin:0 0 4px;font-size:24px;font-weight:700">Time Calculator</h2>
         <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px">Hours + decimal for payroll</div>
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
             <div>
               <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">Start</label>
@@ -946,80 +945,28 @@ function calculatorHTML(){
             <div style="font-size:14px;color:var(--text-dim);font-weight:600;margin-top:4px">decimal hours</div>
             <div id="calc-breakdown" style="font-size:13px;color:var(--text-dim);margin-top:10px">Enter start and end times</div>
           </div>
-
-          <button onclick="addCalcShift()" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;-webkit-tap-highlight-color:transparent">+ Add to Total</button>
-        </div>
-
-        <div id="calc-shifts-card" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px">Running Total</div>
-            <button onclick="clearCalcShifts()" style="font-size:12px;color:var(--text-dim);background:none;border:none;cursor:pointer;font-weight:600">Clear all</button>
-          </div>
-          <div id="calc-shifts-list"></div>
-          <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px;display:flex;justify-content:space-between;align-items:baseline">
-            <div style="font-size:14px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.6px">Total</div>
-            <div id="calc-shifts-total" style="font-size:34px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums">0.00 hrs</div>
-          </div>
         </div>
       </div>
     </div>
   `;
 }
 function _calcTimeToMin(s){if(!s||!s.includes(':'))return null;const[h,m]=s.split(':').map(Number);return h*60+m}
-function _calcMinsFromInputs(){
-  const s=document.getElementById('calc-start')?.value;
-  const e=document.getElementById('calc-end')?.value;
-  const br=parseInt(document.getElementById('calc-break')?.value)||0;
-  const sm=_calcTimeToMin(s),em=_calcTimeToMin(e);
-  if(sm==null||em==null)return null;
-  let mins=em-sm;
-  if(mins<0)mins+=24*60; // crossed midnight
-  mins-=br;
-  if(mins<0)mins=0;
-  return {start:s,end:e,breakMin:br,minutes:mins};
-}
 function updateCalc(){
   const dec=document.getElementById('calc-decimal');
   const bd=document.getElementById('calc-breakdown');
   if(!dec||!bd)return;
-  const r=_calcMinsFromInputs();
-  if(!r){dec.textContent='0.00';bd.textContent='Enter start and end times';return}
-  const h=Math.floor(r.minutes/60),m=r.minutes%60;
-  dec.textContent=(r.minutes/60).toFixed(2);
-  bd.textContent=h+' hr '+m+' min · '+r.minutes+' minutes total'+(r.breakMin?` (−${r.breakMin}m break)`:'');
-}
-function addCalcShift(){
-  const r=_calcMinsFromInputs();
-  if(!r||!r.minutes)return;
-  calcShifts.push(r);
-  renderCalcShifts();
-}
-function clearCalcShifts(){calcShifts=[];renderCalcShifts()}
-function removeCalcShift(i){calcShifts.splice(i,1);renderCalcShifts()}
-function _calcFmt12(s){let[h,m]=s.split(':').map(Number);const a=h>=12?'PM':'AM';h=h%12||12;return h+':'+String(m).padStart(2,'0')+' '+a}
-function renderCalcShifts(){
-  const card=document.getElementById('calc-shifts-card');
-  const list=document.getElementById('calc-shifts-list');
-  const total=document.getElementById('calc-shifts-total');
-  if(!card||!list||!total)return;
-  if(!calcShifts.length){card.style.display='none';return}
-  card.style.display='';
-  list.innerHTML=calcShifts.map((sh,i)=>{
-    const dec=(sh.minutes/60).toFixed(2);
-    const h=Math.floor(sh.minutes/60),m=sh.minutes%60;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:13px;border-bottom:1px solid var(--border)">
-      <div style="display:flex;flex-direction:column;gap:2px">
-        <span style="color:var(--text);font-variant-numeric:tabular-nums;font-weight:600">${_calcFmt12(sh.start)} → ${_calcFmt12(sh.end)}</span>
-        <span style="color:var(--text-dim);font-size:11px">${h}h ${m}m${sh.breakMin?` · −${sh.breakMin}m break`:''}</span>
-      </div>
-      <span style="display:flex;gap:12px;align-items:center">
-        <strong style="font-variant-numeric:tabular-nums;color:var(--text);font-size:15px">${dec} hrs</strong>
-        <button onclick="removeCalcShift(${i})" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;line-height:1;padding:0 4px" title="Remove">×</button>
-      </span>
-    </div>`
-  }).join('');
-  const totalMin=calcShifts.reduce((a,b)=>a+b.minutes,0);
-  total.textContent=(totalMin/60).toFixed(2)+' hrs';
+  const s=document.getElementById('calc-start')?.value;
+  const e=document.getElementById('calc-end')?.value;
+  const br=parseInt(document.getElementById('calc-break')?.value)||0;
+  const sm=_calcTimeToMin(s),em=_calcTimeToMin(e);
+  if(sm==null||em==null){dec.textContent='0.00';bd.textContent='Enter start and end times';return}
+  let mins=em-sm;
+  if(mins<0)mins+=24*60; // crossed midnight
+  mins-=br;
+  if(mins<0)mins=0;
+  const h=Math.floor(mins/60),m=mins%60;
+  dec.textContent=(mins/60).toFixed(2);
+  bd.textContent=h+' hr '+m+' min · '+mins+' minutes total'+(br?` (−${br}m break)`:'');
 }
 
 function bodyHTML(p){

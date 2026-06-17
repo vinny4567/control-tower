@@ -913,12 +913,27 @@ function popoutActive(){doOpen(activeTab)}
 
 // ── TIME CALCULATOR ────────────────────────────────────────────────
 // Payroll-style duration calculator: start + end → hours, minutes, decimal.
-// Auto-calculates on every input change.
+// Uses explicit hour/minute number fields + AM/PM toggle buttons (NOT native
+// <input type="time"> — that fights us on Safari/iOS with value-commit quirks).
+let calcAmPm={start:'AM',end:'PM'};
+function _calcRow(label,key){
+  return `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px;width:48px">${label}</label>
+      <input type="number" inputmode="numeric" id="calc-${key}-h" oninput="updateCalc()" placeholder="HH" min="1" max="12" style="width:72px;font-size:24px;padding:10px 8px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums;text-align:center">
+      <span style="font-size:22px;color:var(--text-dim);font-weight:700">:</span>
+      <input type="number" inputmode="numeric" id="calc-${key}-m" oninput="updateCalc()" placeholder="MM" min="0" max="59" style="width:72px;font-size:24px;padding:10px 8px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums;text-align:center">
+      <button type="button" id="calc-${key}-AM" onclick="setCalcAmPm('${key}','AM')" style="padding:10px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;-webkit-tap-highlight-color:transparent">AM</button>
+      <button type="button" id="calc-${key}-PM" onclick="setCalcAmPm('${key}','PM')" style="padding:10px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text-dim);border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;-webkit-tap-highlight-color:transparent">PM</button>
+    </div>`;
+}
 function calculatorHTML(){
-  setTimeout(updateCalc,0);
-  // Belt-and-suspenders: native <input type="time"> on iOS Safari doesn't reliably fire
-  // 'input' for the AM/PM column on the wheel picker. Poll as a fallback.
-  if(!window.__calcPoll)window.__calcPoll=setInterval(updateCalc,250);
+  // Mount + apply default AM/PM highlights
+  setTimeout(()=>{
+    setCalcAmPm('start',calcAmPm.start,true);
+    setCalcAmPm('end',calcAmPm.end,true);
+    updateCalc();
+  },0);
   return `
     <div style="height:100%;overflow:auto;padding:24px 20px;color:var(--text);background:var(--bg)">
       <div style="max-width:680px;margin:0 auto">
@@ -926,24 +941,16 @@ function calculatorHTML(){
         <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px">Hours + decimal for payroll</div>
 
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">Start</label>
-              <input type="time" id="calc-start" oninput="updateCalc()" onchange="updateCalc()" onblur="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
-            </div>
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">End</label>
-              <input type="time" id="calc-end" oninput="updateCalc()" onchange="updateCalc()" onblur="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
-            </div>
-          </div>
+          ${_calcRow('Start','start')}
+          ${_calcRow('End','end')}
 
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-            <label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px">Break</label>
-            <input type="number" id="calc-break" oninput="updateCalc()" onchange="updateCalc()" value="0" min="0" max="600" style="width:90px;font-size:16px;padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;font-variant-numeric:tabular-nums">
+          <div style="display:flex;align-items:center;gap:10px;margin:6px 0 4px">
+            <label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px;width:48px">Break</label>
+            <input type="number" inputmode="numeric" id="calc-break" oninput="updateCalc()" value="0" min="0" max="600" style="width:90px;font-size:16px;padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;font-variant-numeric:tabular-nums;text-align:center">
             <span style="font-size:12px;color:var(--text-dim)">minutes (deducted)</span>
           </div>
 
-          <div style="text-align:center;padding:18px 0;border-top:1px solid var(--border)">
+          <div style="text-align:center;padding:18px 0 4px;border-top:1px solid var(--border);margin-top:16px">
             <div id="calc-decimal" style="font-size:56px;font-weight:800;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums">0.00</div>
             <div style="font-size:14px;color:var(--text-dim);font-weight:600;margin-top:4px">decimal hours</div>
             <div id="calc-breakdown" style="font-size:13px;color:var(--text-dim);margin-top:10px">Enter start and end times</div>
@@ -953,17 +960,34 @@ function calculatorHTML(){
     </div>
   `;
 }
-function _calcTimeToMin(s){if(!s||!s.includes(':'))return null;const[h,m]=s.split(':').map(Number);return h*60+m}
+function setCalcAmPm(key,period,skipUpdate){
+  calcAmPm[key]=period;
+  ['AM','PM'].forEach(p=>{
+    const b=document.getElementById(`calc-${key}-${p}`);
+    if(!b)return;
+    const on=p===period;
+    b.style.background=on?'var(--accent)':'var(--bg)';
+    b.style.color=on?'#fff':'var(--text-dim)';
+    b.style.borderColor=on?'var(--accent)':'var(--border)';
+  });
+  if(!skipUpdate)updateCalc();
+}
 function updateCalc(){
   const dec=document.getElementById('calc-decimal');
   const bd=document.getElementById('calc-breakdown');
   if(!dec||!bd)return;
-  const s=document.getElementById('calc-start')?.value;
-  const e=document.getElementById('calc-end')?.value;
+  const sh=parseInt(document.getElementById('calc-start-h')?.value);
+  const sm=parseInt(document.getElementById('calc-start-m')?.value);
+  const eh=parseInt(document.getElementById('calc-end-h')?.value);
+  const em=parseInt(document.getElementById('calc-end-m')?.value);
   const br=parseInt(document.getElementById('calc-break')?.value)||0;
-  const sm=_calcTimeToMin(s),em=_calcTimeToMin(e);
-  if(sm==null||em==null){dec.textContent='0.00';bd.textContent='Enter start and end times';return}
-  let mins=em-sm;
+  if(isNaN(sh)||isNaN(sm)||isNaN(eh)||isNaN(em)){
+    dec.textContent='0.00';bd.textContent='Enter start and end times';return
+  }
+  // Convert 12h → 24h (treat 12 AM as 0, 12 PM as 12)
+  const to24=(h,ap)=>{let r=h%12;if(ap==='PM')r+=12;return r};
+  const s24=to24(sh,calcAmPm.start), e24=to24(eh,calcAmPm.end);
+  let mins=(e24*60+em)-(s24*60+sm);
   if(mins<0)mins+=24*60; // crossed midnight
   mins-=br;
   if(mins<0)mins=0;

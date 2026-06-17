@@ -307,6 +307,7 @@ const DEFAULT_PANELS=[
   {id:4,emoji:'🍱',name:'Catering',url:'https://order.angeliscatering.com/catering-internal.html',launcher:false},
   {id:5,emoji:'🗺️',name:'Map',url:'https://angelis-backend.onrender.com/reservations-internal.html',launcher:false},
   {id:7,emoji:'🥂',name:'Private Party',url:'https://order.angeliscatering.com/parties-internal-form.html',launcher:false},
+  {id:8,emoji:'🧮',name:'Calculator',url:'',launcher:false},
 ];
 function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.parse(r);
   // Migration: remove the old Online Orders tab if it exists in saved config
@@ -314,6 +315,10 @@ function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.pars
   // Migration: add Private Party tab if missing
   if(c.panels&&!c.panels.find(p=>p.id===7)){
     c.panels.push({id:7,emoji:'🥂',name:'Private Party',url:'https://order.angeliscatering.com/parties-internal-form.html',launcher:false});
+  }
+  // Migration: add Calculator tab if missing
+  if(c.panels&&!c.panels.find(p=>p.id===8)){
+    c.panels.push({id:8,emoji:'🧮',name:'Calculator',url:'',launcher:false});
   }
   // Migration: Schedule panel — point at /dashboard (token injection lands the user straight in)
   const sch=c.panels?.find(p=>p.id===1);
@@ -905,9 +910,123 @@ function switchTab(id){
 }
 function reloadActive(){const f=document.querySelector('#viewport iframe');if(f)f.src=f.src}
 function popoutActive(){doOpen(activeTab)}
+
+// ── TIME CALCULATOR ────────────────────────────────────────────────
+// Payroll-style duration calculator: start + end → hours, minutes, decimal.
+// Supports an optional break deduction and a running "Total" list of multiple shifts.
+let calcShifts=[]; // [{start, end, breakMin, minutes}]
+function calculatorHTML(){
+  setTimeout(()=>{renderCalcShifts();updateCalc()},0);
+  return `
+    <div style="height:100%;overflow:auto;padding:24px 20px;color:var(--text);background:var(--bg)">
+      <div style="max-width:680px;margin:0 auto">
+        <h2 style="margin:0 0 4px;font-size:24px;font-weight:700">Time Calculator</h2>
+        <div style="color:var(--text-dim);font-size:13px;margin-bottom:20px">Hours + decimal for payroll</div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">Start</label>
+              <input type="time" id="calc-start" oninput="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.6px">End</label>
+              <input type="time" id="calc-end" oninput="updateCalc()" style="width:100%;font-size:22px;padding:12px 14px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:10px;font-variant-numeric:tabular-nums">
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px">Break</label>
+            <input type="number" id="calc-break" oninput="updateCalc()" value="0" min="0" max="600" style="width:90px;font-size:16px;padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;font-variant-numeric:tabular-nums">
+            <span style="font-size:12px;color:var(--text-dim)">minutes (deducted)</span>
+          </div>
+
+          <div style="text-align:center;padding:18px 0;border-top:1px solid var(--border)">
+            <div id="calc-decimal" style="font-size:56px;font-weight:800;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums">0.00</div>
+            <div style="font-size:14px;color:var(--text-dim);font-weight:600;margin-top:4px">decimal hours</div>
+            <div id="calc-breakdown" style="font-size:13px;color:var(--text-dim);margin-top:10px">Enter start and end times</div>
+          </div>
+
+          <button onclick="addCalcShift()" style="width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;-webkit-tap-highlight-color:transparent">+ Add to Total</button>
+        </div>
+
+        <div id="calc-shifts-card" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="font-size:13px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px">Running Total</div>
+            <button onclick="clearCalcShifts()" style="font-size:12px;color:var(--text-dim);background:none;border:none;cursor:pointer;font-weight:600">Clear all</button>
+          </div>
+          <div id="calc-shifts-list"></div>
+          <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px;display:flex;justify-content:space-between;align-items:baseline">
+            <div style="font-size:14px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:0.6px">Total</div>
+            <div id="calc-shifts-total" style="font-size:34px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums">0.00 hrs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function _calcTimeToMin(s){if(!s||!s.includes(':'))return null;const[h,m]=s.split(':').map(Number);return h*60+m}
+function _calcMinsFromInputs(){
+  const s=document.getElementById('calc-start')?.value;
+  const e=document.getElementById('calc-end')?.value;
+  const br=parseInt(document.getElementById('calc-break')?.value)||0;
+  const sm=_calcTimeToMin(s),em=_calcTimeToMin(e);
+  if(sm==null||em==null)return null;
+  let mins=em-sm;
+  if(mins<0)mins+=24*60; // crossed midnight
+  mins-=br;
+  if(mins<0)mins=0;
+  return {start:s,end:e,breakMin:br,minutes:mins};
+}
+function updateCalc(){
+  const dec=document.getElementById('calc-decimal');
+  const bd=document.getElementById('calc-breakdown');
+  if(!dec||!bd)return;
+  const r=_calcMinsFromInputs();
+  if(!r){dec.textContent='0.00';bd.textContent='Enter start and end times';return}
+  const h=Math.floor(r.minutes/60),m=r.minutes%60;
+  dec.textContent=(r.minutes/60).toFixed(2);
+  bd.textContent=h+' hr '+m+' min · '+r.minutes+' minutes total'+(r.breakMin?` (−${r.breakMin}m break)`:'');
+}
+function addCalcShift(){
+  const r=_calcMinsFromInputs();
+  if(!r||!r.minutes)return;
+  calcShifts.push(r);
+  renderCalcShifts();
+}
+function clearCalcShifts(){calcShifts=[];renderCalcShifts()}
+function removeCalcShift(i){calcShifts.splice(i,1);renderCalcShifts()}
+function _calcFmt12(s){let[h,m]=s.split(':').map(Number);const a=h>=12?'PM':'AM';h=h%12||12;return h+':'+String(m).padStart(2,'0')+' '+a}
+function renderCalcShifts(){
+  const card=document.getElementById('calc-shifts-card');
+  const list=document.getElementById('calc-shifts-list');
+  const total=document.getElementById('calc-shifts-total');
+  if(!card||!list||!total)return;
+  if(!calcShifts.length){card.style.display='none';return}
+  card.style.display='';
+  list.innerHTML=calcShifts.map((sh,i)=>{
+    const dec=(sh.minutes/60).toFixed(2);
+    const h=Math.floor(sh.minutes/60),m=sh.minutes%60;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:13px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span style="color:var(--text);font-variant-numeric:tabular-nums;font-weight:600">${_calcFmt12(sh.start)} → ${_calcFmt12(sh.end)}</span>
+        <span style="color:var(--text-dim);font-size:11px">${h}h ${m}m${sh.breakMin?` · −${sh.breakMin}m break`:''}</span>
+      </div>
+      <span style="display:flex;gap:12px;align-items:center">
+        <strong style="font-variant-numeric:tabular-nums;color:var(--text);font-size:15px">${dec} hrs</strong>
+        <button onclick="removeCalcShift(${i})" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:20px;line-height:1;padding:0 4px" title="Remove">×</button>
+      </span>
+    </div>`
+  }).join('');
+  const totalMin=calcShifts.reduce((a,b)=>a+b.minutes,0);
+  total.textContent=(totalMin/60).toFixed(2)+' hrs';
+}
+
 function bodyHTML(p){
   // Special: Gmail panel renders a real inbox UI powered by Gmail API
   if(p.id===3||(p.url||'').includes('mail.google.com')){return gmailMailboxHTML()}
+  // Special: Calculator panel — time-duration calculator for payroll
+  if(p.id===8)return calculatorHTML();
   if(p.launcher){const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent),hint=isIOS?'Tap to open native app':'Click to open in new tab';return `<div class="launcher" onclick="doOpen(${p.id})"><div class="l-name">${esc(p.name)}</div><div class="l-btn">↗&nbsp; Open ${esc(p.name)}</div><div class="l-hint">${hint}</div></div>`}
   if(!p.url)return `<div class="empty-state"><div class="e-ico">${p.emoji}</div><p>No URL configured</p><button class="cfg-btn" onclick="openSettings()">Set URL</button></div>`;
   // Schedule panel — inject the stored auth token into the iframe URL so it stays logged in

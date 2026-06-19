@@ -857,10 +857,10 @@ function liveOrdersHTML(){
     const id=esc(String(o.id||''));const name=esc(o.name||'');const items=esc(o.items||'');
     const qty=esc(String(o.qty||''));const chan=esc(o.channel||o.fulfillment||'');const eta=esc(o.eta||'');
     return `<div class="co-row" style="cursor:default">
-        <span class="co-when" style="min-width:auto"><b style="color:var(--text)">${id}</b>${eta?` · <span style="color:var(--accent2)">${eta}</span>`:''}</span>
-        <span class="co-name">${name||'(guest)'}${qty?` <span style="color:var(--text-muted)">×${qty}</span>`:''}</span>
-        <span class="co-meta">${chan?`<span class="co-badge">${chan}</span>`:''}</span>
-      </div>${items?`<div class="co-items" style="display:block">${items}</div>`:''}`;
+        <span class="co-when" style="min-width:auto"><b style="color:var(--text)">${name||'(guest)'}</b>${eta?` · <span style="color:var(--accent2)">${eta}</span>`:''}</span>
+        <span class="co-name">${items}</span>
+        <span class="co-meta">${qty?`<span style="color:var(--text-dim)">×${qty} </span>`:''}${chan?`<span class="co-badge">${chan}</span>`:''}</span>
+      </div>`;
   }).join('');
   return `<div class="co-list">${rows}</div>`;
 }

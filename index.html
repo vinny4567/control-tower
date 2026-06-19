@@ -832,6 +832,38 @@ function cateringOrdersHTML(){
   }).join('');
   return `<div class="co-list">${rows}</div>`;
 }
+// ---- Live online orders: Otter Order Manager → backend → here ----
+const ORDERS_API='https://jarvis-voicejarvis-voice.onrender.com/orders';
+let liveOrders=null; // array | null(loading) | 'nokey' | 'badkey'
+let liveOrdersAt=null;
+function ordersKey(){return localStorage.getItem('ct_orders_key')||''}
+function setOrdersKey(){const k=prompt('Paste the Orders access key (same value as ORDERS_TOKEN in Render):');if(k&&k.trim()){localStorage.setItem('ct_orders_key',k.trim());liveOrders=null;loadLiveOrders();}}
+async function loadLiveOrders(){
+  if(!ordersKey()){liveOrders='nokey';const el=document.getElementById('live-orders-list');if(el)el.innerHTML=liveOrdersHTML();return;}
+  try{
+    const r=await fetch(ORDERS_API+'?key='+encodeURIComponent(ordersKey()));
+    if(r.status===401){liveOrders='badkey';}
+    else if(r.ok){const d=await r.json();liveOrders=Array.isArray(d.orders)?d.orders:[];liveOrdersAt=d.updatedAt||null;}
+    const el=document.getElementById('live-orders-list');if(el)el.innerHTML=liveOrdersHTML();
+    const b=document.getElementById('live-orders-badge');if(b)b.textContent=Array.isArray(liveOrders)?(liveOrders.length+' active'):'';
+  }catch(e){console.error('live orders',e)}
+}
+function liveOrdersHTML(){
+  if(liveOrders==='nokey')return '<div class="co-empty">Not connected — <a href="#" onclick="setOrdersKey();return false" style="color:var(--accent);font-weight:700">connect the orders feed</a></div>';
+  if(liveOrders==='badkey')return '<div class="co-empty">Access key rejected — <a href="#" onclick="setOrdersKey();return false" style="color:var(--accent);font-weight:700">re-enter key</a></div>';
+  if(liveOrders===null)return '<div class="co-empty">Loading orders…</div>';
+  if(liveOrders.length===0)return '<div class="co-empty">No active orders right now.</div>';
+  const rows=liveOrders.map(o=>{
+    const id=esc(String(o.id||''));const name=esc(o.name||'');const items=esc(o.items||'');
+    const qty=esc(String(o.qty||''));const chan=esc(o.channel||o.fulfillment||'');const eta=esc(o.eta||'');
+    return `<div class="co-row" style="cursor:default">
+        <span class="co-when" style="min-width:auto"><b style="color:var(--text)">${id}</b>${eta?` · <span style="color:var(--accent2)">${eta}</span>`:''}</span>
+        <span class="co-name">${name||'(guest)'}${qty?` <span style="color:var(--text-muted)">×${qty}</span>`:''}</span>
+        <span class="co-meta">${chan?`<span class="co-badge">${chan}</span>`:''}</span>
+      </div>${items?`<div class="co-items" style="display:block">${items}</div>`:''}`;
+  }).join('');
+  return `<div class="co-list">${rows}</div>`;
+}
 function dashboardHTML(){
   const cateringPanel=cfg.panels.find(p=>p.id===4);
   const cateringBase=(cateringPanel?.url||'https://order.angeliscatering.com/catering-internal.html').split('?')[0].split('#')[0];
@@ -866,13 +898,12 @@ function dashboardHTML(){
           <div class="dc-row"><span class="dc-row-label">Covered</span><span class="dc-row-val">42 / 76</span></div>
           <div class="dc-row"><span class="dc-row-label">Walk-ins (est.)</span><span class="dc-row-val">~14</span></div>
         </div>
-        <div class="dash-card">
-          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">🛵</span>Online Orders</div><div class="dc-badge amber">3 pending</div></div>
-          <div class="dc-value">42</div>
-          <div class="dc-sub">today · <strong style="color:var(--text)">$1,284</strong> gross</div>
-          <div class="dc-row"><span class="dc-row-label">DoorDash</span><span class="dc-row-val">21</span></div>
-          <div class="dc-row"><span class="dc-row-label">UberEats</span><span class="dc-row-val">14</span></div>
-          <div class="dc-row"><span class="dc-row-label">Grubhub</span><span class="dc-row-val">7</span></div>
+        <div class="dash-card" style="padding:0;overflow:hidden">
+          <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
+            <div class="dc-title"><span class="dc-title-ico">🛵</span>Online Orders <span style="color:var(--accent2);font-weight:800;font-size:9px;letter-spacing:.06em;margin-left:2px">● LIVE</span></div>
+            <div class="dc-badge amber" id="live-orders-badge"></div>
+          </div>
+          <div id="live-orders-list">${liveOrdersHTML()}</div>
         </div>
       </div>
     </div>
@@ -901,7 +932,7 @@ function startDashboardClock(){
 function renderAll(){renderTabs();renderViewport()}
 function switchTab(id){
   activeTab=id;cfg.activeTab=id;saveCfg();renderAll();
-  if(id===DASH)loadCateringOrders();
+  if(id===DASH){loadCateringOrders();loadLiveOrders();}
   if(gmailValid()){
     if(id===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
     if(id===DASH)fetchGmail();
@@ -1069,10 +1100,12 @@ renderAll();
 // Preload data for whichever tab is active on launch
 window.addEventListener('load',()=>{setTimeout(()=>{
   if(activeTab===3&&gmailValid()&&gmailTab.emails===null)loadGmailTab();
-  if(activeTab===DASH)loadCateringOrders();
+  if(activeTab===DASH){loadCateringOrders();loadLiveOrders();}
 },800)});
 // Keep catering orders fresh while the dashboard is open
 setInterval(()=>{if(activeTab===DASH)loadCateringOrders()},60000);
+// Keep live online orders fresh (faster cadence) while the dashboard is open
+setInterval(()=>{if(activeTab===DASH)loadLiveOrders()},10000);
 </script>
 </body>
 </html>

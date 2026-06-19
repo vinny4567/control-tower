@@ -1,4 +1,4 @@
-const CACHE = 'angeli-tower-v1';
+const CACHE = 'angeli-tower-v2';
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -8,13 +8,25 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(clients.claim());
+  e.waitUntil(
+    caches.keys()
+      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => clients.claim())
+  );
 });
 
+// Network-first for the app shell: always try to load the freshest dashboard,
+// fall back to the cached copy only when offline. Keeps the live-orders card current.
 self.addEventListener('fetch', e => {
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      caches.match('/index.html').then(r => r || fetch(e.request))
+      fetch(e.request)
+        .then(r => {
+          const copy = r.clone();
+          caches.open(CACHE).then(c => c.put('/index.html', copy));
+          return r;
+        })
+        .catch(() => caches.match('/index.html'))
     );
   }
 });

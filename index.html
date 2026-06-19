@@ -854,12 +854,14 @@ function liveOrdersHTML(){
   if(liveOrders===null)return '<div class="co-empty">Loading orders…</div>';
   if(liveOrders.length===0)return '<div class="co-empty">No active orders right now.</div>';
   const rows=liveOrders.map(o=>{
-    const id=esc(String(o.id||''));const name=esc(o.name||'');const items=esc(o.items||'');
-    const qty=esc(String(o.qty||''));const chan=esc(o.channel||o.fulfillment||'');const eta=esc(o.eta||'');
-    return `<div class="co-row" style="cursor:default">
-        <span class="co-when" style="min-width:auto"><b style="color:var(--text)">${name||'(guest)'}</b>${eta?` · <span style="color:var(--accent2)">${eta}</span>`:''}</span>
-        <span class="co-name">${items}</span>
-        <span class="co-meta">${qty?`<span style="color:var(--text-dim)">×${qty} </span>`:''}${chan?`<span class="co-badge">${chan}</span>`:''}</span>
+    const name=esc(o.name||'');const items=esc(o.items||'');
+    const qty=esc(String(o.qty||''));const eta=esc(o.eta||'');const ful=esc(o.fulfillment||'');const tag=eta||ful;
+    return `<div class="co-row" style="cursor:default;display:block;padding:11px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+          <b style="color:var(--text);font-size:16px">${name||'(guest)'}</b>
+          ${tag?`<span style="color:var(--accent2);font-size:13px;font-weight:600;white-space:nowrap">${tag}</span>`:''}
+        </div>
+        <div style="color:var(--text-dim);font-size:14px;margin-top:3px;line-height:1.35">${qty?`<span style="color:var(--text-muted)">${qty}× </span>`:''}${items||'—'}</div>
       </div>`;
   }).join('');
   return `<div class="co-list">${rows}</div>`;
@@ -885,7 +887,7 @@ function dashboardHTML(){
           <div id="dash-clock-date" style="font-size:14px;color:var(--text-dim);font-weight:600">${_dateStr}</div>
         </div>
         <!-- Reservations + Upcoming Catering cards removed for now (re-add from git history) -->
-        <div class="dash-card" style="padding:0;overflow:hidden">
+        <div class="dash-card" style="grid-column:1/-1;padding:0;overflow:hidden">
           <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
             <div class="dc-title"><span class="dc-title-ico">🛵</span>Online Orders <span style="color:var(--accent2);font-weight:800;font-size:9px;letter-spacing:.06em;margin-left:2px">● LIVE</span></div>
             <div class="dc-badge amber" id="live-orders-badge"></div>

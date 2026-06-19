@@ -884,20 +884,7 @@ function dashboardHTML(){
           <div id="dash-clock-time" style="font-size:52px;font-weight:800;color:var(--text);letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">${_timeStr}</div>
           <div id="dash-clock-date" style="font-size:14px;color:var(--text-dim);font-weight:600">${_dateStr}</div>
         </div>
-        <div class="dash-card" style="padding:0;overflow:hidden">
-          <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
-            <div class="dc-title"><span class="dc-title-ico">🍱</span>Upcoming Catering Orders</div>
-            <a href="${esc(cateringBase)}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;font-weight:600">Open full ↗</a>
-          </div>
-          <div id="catering-orders-list">${cateringOrdersHTML()}</div>
-        </div>
-        <div class="dash-card">
-          <div class="dc-head"><div class="dc-title"><span class="dc-title-ico">📅</span>Reservations Today</div><div class="dc-badge green">12</div></div>
-          <div class="dc-value">12</div>
-          <div class="dc-sub">Next: <strong style="color:var(--text)">6:30 PM</strong> — party of 4 (Rossi)</div>
-          <div class="dc-row"><span class="dc-row-label">Covered</span><span class="dc-row-val">42 / 76</span></div>
-          <div class="dc-row"><span class="dc-row-label">Walk-ins (est.)</span><span class="dc-row-val">~14</span></div>
-        </div>
+        <!-- Reservations + Upcoming Catering cards removed for now (re-add from git history) -->
         <div class="dash-card" style="padding:0;overflow:hidden">
           <div class="dc-head" style="padding:12px 16px 10px;border-bottom:1px solid var(--border)">
             <div class="dc-title"><span class="dc-title-ico">🛵</span>Online Orders <span style="color:var(--accent2);font-weight:800;font-size:9px;letter-spacing:.06em;margin-left:2px">● LIVE</span></div>

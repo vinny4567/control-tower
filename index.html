@@ -902,13 +902,13 @@ function liveOrdersHTML(){
   if(liveOrders.length===0)return '<div class="co-empty">No active orders right now.</div>';
   const rows=liveOrders.map(o=>{
     const name=esc(o.name||'');const items=esc(o.items||'');
-    const qty=esc(String(o.qty||''));const eta=esc(o.eta||'');const ful=esc(o.fulfillment||'');const tag=[ful,eta].filter(Boolean).join(' · ');
+    const eta=esc(o.eta||'');const ful=esc(o.fulfillment||'');const tag=[ful,eta].filter(Boolean).join(' · ');
     return `<div class="co-row" style="cursor:default;display:block;padding:13px 16px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
           <b style="color:var(--text);font-size:21px">${name||'(guest)'}</b>
           ${tag?`<span style="color:var(--accent2);font-size:15px;font-weight:600;white-space:nowrap">${tag}</span>`:''}
         </div>
-        <div style="color:var(--text-dim);font-size:17px;margin-top:4px;line-height:1.35">${qty?`<span style="color:var(--text-muted)">${qty}× </span>`:''}${items||'—'}</div>
+        <div style="color:var(--text-dim);font-size:17px;margin-top:4px;line-height:1.35">${items||'—'}</div>
       </div>`;
   }).join('');
   return `<div class="co-list">${rows}</div>`;

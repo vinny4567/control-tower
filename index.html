@@ -861,19 +861,39 @@ function cateringOrdersHTML(){
 }
 // ---- Live online orders: Otter Order Manager → backend → here ----
 const ORDERS_API='https://jarvis-voicejarvis-voice.onrender.com/orders';
+const ORDERS_HOLD_MS=180000; // keep showing the last-known orders for up to 3 min across a backend restart/redeploy
 let liveOrders=null; // array | null(loading) | 'nokey' | 'badkey'
 let liveOrdersAt=null;
+// Last known-good order list, persisted. The backend keeps the list in memory, so a restart (redeploy or
+// spin-down) resets it to [] with updatedAt=null until the reader re-pushes ~15s later. We ride through that
+// gap by holding this snapshot, so the card never blanks out on a backend blip.
+let ordersSnapshot=(()=>{try{return JSON.parse(localStorage.getItem('ct_orders_snapshot')||'null')}catch(e){return null}})();
 function ordersKey(){return localStorage.getItem('ct_orders_key')||''}
 function setOrdersKey(){const k=prompt('Paste the Orders access key (same value as ORDERS_TOKEN in Render):');if(k&&k.trim()){localStorage.setItem('ct_orders_key',k.trim());liveOrders=null;loadLiveOrders();}}
+function saveOrdersSnapshot(orders){ordersSnapshot={orders,savedAt:Date.now()};try{localStorage.setItem('ct_orders_snapshot',JSON.stringify(ordersSnapshot))}catch(e){}}
+function snapshotFresh(){return ordersSnapshot&&Array.isArray(ordersSnapshot.orders)&&ordersSnapshot.orders.length&&(Date.now()-ordersSnapshot.savedAt)<ORDERS_HOLD_MS;}
 async function loadLiveOrders(){
   if(!ordersKey()){liveOrders='nokey';const el=document.getElementById('live-orders-list');if(el)el.innerHTML=liveOrdersHTML();return;}
   try{
     const r=await fetch(ORDERS_API+'?key='+encodeURIComponent(ordersKey()));
     if(r.status===401){liveOrders='badkey';}
-    else if(r.ok){const d=await r.json();liveOrders=Array.isArray(d.orders)?d.orders:[];liveOrdersAt=d.updatedAt||null;}
+    else if(r.ok){
+      const d=await r.json();
+      const orders=Array.isArray(d.orders)?d.orders:[];
+      if(d.updatedAt){ liveOrders=orders; liveOrdersAt=d.updatedAt; saveOrdersSnapshot(orders); }       // fresh data — trust it + cache it
+      else if(snapshotFresh()){ liveOrders=ordersSnapshot.orders; }                                     // backend just restarted, reader hasn't re-pushed yet — hold last known
+      else { liveOrders=orders; liveOrdersAt=null; }                                                    // genuinely nothing (or snapshot too old)
+    }
     const el=document.getElementById('live-orders-list');if(el)el.innerHTML=liveOrdersHTML();
     const b=document.getElementById('live-orders-badge');if(b)b.textContent=Array.isArray(liveOrders)?(liveOrders.length+' active'):'';
-  }catch(e){console.error('live orders',e)}
+  }catch(e){
+    console.error('live orders',e);
+    // backend/network blip — if nothing is showing, fall back to the last-known orders so the card doesn't go blank
+    if((liveOrders===null||(Array.isArray(liveOrders)&&!liveOrders.length))&&snapshotFresh()){
+      liveOrders=ordersSnapshot.orders;
+      const el=document.getElementById('live-orders-list');if(el)el.innerHTML=liveOrdersHTML();
+    }
+  }
 }
 function liveOrdersHTML(){
   if(liveOrders==='nokey')return '<div class="co-empty">Not connected — <a href="#" onclick="setOrdersKey();return false" style="color:var(--accent);font-weight:700">connect the orders feed</a></div>';

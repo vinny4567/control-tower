@@ -584,6 +584,29 @@ function transformReservationEmail(htmlBody, subject){
     ${notes?`<div style="margin-top:18px;padding:14px 16px;background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Note from customer</div><div style="font-size:17px;color:#1a1d2e;white-space:pre-wrap">${esc(notes)}</div></div>`:''}
   </div>`;
 }
+// Render a SENT reply showing ONLY what we wrote — strip the quoted reply-chain so the inbox shows
+// just the response. Renders HTML replies as HTML (Gmail) or plain-text replies with line breaks
+// (sent from this app), never raw <div>/<blockquote> markup.
+function renderSentBody(body){
+  body=(body||'').trim();
+  const wrap=inner=>`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:18px 20px;background:#fff;color:#1a1d2e;font-size:15px;line-height:1.5;word-wrap:break-word">${inner}</div>`;
+  const escTxt=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const looksHtml=/<(div|p|br|blockquote|span|table|a|b|i|u)\b/i.test(body);
+  if(looksHtml){
+    try{
+      const doc=new DOMParser().parseFromString(body,'text/html');
+      // Drop Gmail's quoted reply chain ("On … wrote:" + the blockquote of the original)
+      doc.querySelectorAll('.gmail_quote_container,.gmail_quote,.gmail_attr,blockquote').forEach(el=>el.remove());
+      const cleaned=(doc.body?doc.body.innerHTML:'').replace(/(\s|<br\s*\/?>|&nbsp;)+$/i,'').trim();
+      if(cleaned) return wrap(cleaned);
+    }catch(e){}
+    return wrap(`<div style="white-space:pre-wrap">${escTxt(body.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim())}</div>`);
+  }
+  // Plain-text reply (sent from this app): drop everything from the "--- Original/Forwarded message ---" marker
+  const sep=body.search(/\n*\s*-{2,}\s*(Original|Forwarded) message/i);
+  const reply=(sep>=0?body.slice(0,sep):body).trim();
+  return wrap(`<div style="white-space:pre-wrap">${escTxt(reply)}</div>`);
+}
 function extractCustomerEmail(body,senderEmail){
   if(!body)return null;
   // Strip HTML to plain text for parsing
@@ -756,11 +779,11 @@ function gmailDetailHTML(forSinglePane){
     // NOTE the `<\/script>` — the backslash prevents the outer index.html <script> tag from being
     // prematurely terminated by the HTML parser (which scans the raw source, not the JS string value).
     const heightScript=`<script>(function(){var id=${JSON.stringify(m.id)};function r(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)+24;parent.postMessage({_ct:'h',id:id,h:h},'*')}catch(e){}}r();window.addEventListener('load',r);setTimeout(r,150);setTimeout(r,800);setTimeout(r,2500);var imgs=document.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(!imgs[i].complete){imgs[i].addEventListener('load',r);imgs[i].addEventListener('error',r)}}})();<\/script>`;
-    // If this is a Reservation Confirmation email, replace the form-table layout with a clean info card.
-    // BUT only for RECEIVED mail — a sent reply is plain text whose quoted original would otherwise be
-    // re-parsed into the card, hiding what we actually wrote. Render sent replies verbatim (keep line breaks).
+    // Sent replies: show ONLY what we wrote — strip the quoted reply-chain and render HTML as HTML
+    // (never raw <div>/<blockquote> markup or the duplicated original).
+    // Received mail: reservation-confirmation → clean card; everything else → as-is.
     const transformedBody=isSent
-      ? `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:18px 20px;background:#fff;color:#1a1d2e;font-size:15px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word">${(m.body||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`
+      ? renderSentBody(m.body||'')
       : transformReservationEmail(m.body||'',m.subject||e.subject||'');
     const fullBody=transformedBody+heightScript;
     // FULL entity-escape — including < and > — so the outer HTML parser never sees raw <script>

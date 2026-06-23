@@ -589,23 +589,25 @@ function transformReservationEmail(htmlBody, subject){
 // (sent from this app), never raw <div>/<blockquote> markup.
 function renderSentBody(body){
   body=(body||'').trim();
-  const wrap=inner=>`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:18px 20px;background:#fff;color:#1a1d2e;font-size:15px;line-height:1.5;word-wrap:break-word">${inner}</div>`;
-  const escTxt=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const looksHtml=/<(div|p|br|blockquote|span|table|a|b|i|u)\b/i.test(body);
-  if(looksHtml){
+  // Show ONLY the message we wrote — strip ALL HTML markup (incl. <pre> wrappers) and the quoted reply-chain,
+  // leaving clean text and nothing else.
+  const TAG_RE=/<(div|p|br|pre|span|table|tr|td|blockquote|a|b|i|u|strong|em|font|ul|ol|li|h[1-6])[\s>\/]/i;
+  if(TAG_RE.test(body)){
     try{
       const doc=new DOMParser().parseFromString(body,'text/html');
-      // Drop Gmail's quoted reply chain ("On … wrote:" + the blockquote of the original)
-      doc.querySelectorAll('.gmail_quote_container,.gmail_quote,.gmail_attr,blockquote').forEach(el=>el.remove());
-      const cleaned=(doc.body?doc.body.innerHTML:'').replace(/(\s|<br\s*\/?>|&nbsp;)+$/i,'').trim();
-      if(cleaned) return wrap(cleaned);
-    }catch(e){}
-    return wrap(`<div style="white-space:pre-wrap">${escTxt(body.replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim())}</div>`);
+      doc.querySelectorAll('.gmail_quote_container,.gmail_quote,.gmail_attr,blockquote,style,script').forEach(el=>el.remove());
+      doc.querySelectorAll('br').forEach(b=>b.replaceWith('\n'));
+      doc.querySelectorAll('p,div,pre,li,tr,h1,h2,h3').forEach(el=>el.append('\n'));
+      body=(doc.body?doc.body.textContent:'')||'';
+    }catch(e){ body=body.replace(/<[^>]+>/g,''); }
   }
-  // Plain-text reply (sent from this app): drop everything from the "--- Original/Forwarded message ---" marker
-  const sep=body.search(/\n*\s*-{2,}\s*(Original|Forwarded) message/i);
-  const reply=(sep>=0?body.slice(0,sep):body).trim();
-  return wrap(`<div style="white-space:pre-wrap">${escTxt(reply)}</div>`);
+  body=body
+    .replace(/\n*\s*-{2,}\s*(Original|Forwarded) message[\s\S]*/i,'')   // our app's quote separator + everything after
+    .replace(/\n*On\b[^\n]{0,200}\bwrote:[\s\S]*/i,'')                  // "On <date> … wrote:" chain
+    .replace(/(^|\n)\s*>.*(?=\n|$)/g,'')                                // ">" quoted lines
+    .replace(/&nbsp;/g,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:18px 20px;background:#fff;color:#1a1d2e;font-size:15px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word">${esc(body)||'—'}</div>`;
 }
 function extractCustomerEmail(body,senderEmail){
   if(!body)return null;

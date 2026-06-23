@@ -830,7 +830,7 @@ function renderViewport(){if(activeTab===ONLINE){document.getElementById('viewpo
 function cmdBtn(c){return `padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;color:#fff;background:${c};-webkit-tap-highlight-color:transparent`}
 function cmdAgo(iso){if(!iso)return'never';const s=Math.round((Date.now()-new Date(iso))/1000);if(s<60)return s+'s ago';const m=Math.round(s/60);if(m<60)return m+'m ago';return Math.round(m/60)+'h ago'}
 function onlineHTML(){
-  if(!ordersKey())return `<div style="max-width:720px;margin:48px auto;text-align:center;color:var(--text-dim)"><h2 style="color:var(--text)">🛰️ Online — Otter Bridge</h2><p>Set your Control Tower token first (Dashboard → the Online Orders card). The bridge uses that same token.</p></div>`;
+  if(!ordersKey())return `<div style="max-width:720px;margin:48px auto;text-align:center;color:var(--text-dim)"><h2 style="color:var(--text)">🛰️ Online — Otter Bridge</h2><p style="margin-bottom:18px;line-height:1.5">This device needs your access token — the same <b>ORDERS_TOKEN</b> you set in Render (the one already connecting your orders feed on the Mac &amp; iPad).</p><button onclick="setOrdersKey();renderViewport()" style="${cmdBtn('#6c63ff')}">🔑 Connect this device</button></div>`;
   return `
   <div style="max-width:920px;margin:0 auto;padding:4px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px">

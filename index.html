@@ -910,7 +910,7 @@ function liveOrdersHTML(){
           <b style="color:var(--text);font-size:21px">${name||'(guest)'}</b>
           ${tag?`<span style="color:var(--accent2);font-size:15px;font-weight:600;white-space:nowrap">${tag}</span>`:''}
         </div>
-        <div style="color:var(--text-dim);font-size:17px;margin-top:4px;line-height:1.35">${items||'—'}</div>
+        <div style="color:var(--text-dim);font-size:17px;margin-top:4px;line-height:1.4;white-space:pre-wrap">${items||'—'}</div>
       </div>`;
   }).join('');
   return `<div class="co-list">${rows}</div>`;

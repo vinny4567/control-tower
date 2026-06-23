@@ -341,6 +341,9 @@ function loadCfg(){try{const r=localStorage.getItem(KEY);if(r){const c=JSON.pars
   return c}}catch(e){}return{layout:defaultLayout(),panels:DEFAULT_PANELS.map(p=>({...p}))}}
 function saveCfg(){localStorage.setItem(KEY,JSON.stringify(cfg))}
 const DASH='dashboard';
+const ONLINE='online';
+const CMD_API='https://jarvis-voicejarvis-voice.onrender.com/cmd';
+let cmdConsoleTimer=null;
 let cfg=loadCfg(),focused=null,editing=null,activeTab=cfg.activeTab||DASH;
 
 // ── SCHEDULER TOKEN BRIDGE ─────────────────────────────────────────
@@ -818,8 +821,66 @@ function renderCompose(){
 }
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
-function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
-function renderViewport(){if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
+function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+`<div class="tab ${activeTab===ONLINE?'active':''}" onclick="switchTab('${ONLINE}')">🛰️ Online</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
+function renderViewport(){if(activeTab===ONLINE){document.getElementById('viewport').innerHTML=onlineHTML();loadCmdConsole();return}if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
+
+// ── ONLINE TAB: Otter command bridge ───────────────────────────────
+// Queue actions to the reader userscript on the always-on Mac's Otter tab; it runs them there
+// and reports back via the backend. The reliable path that does NOT use the Chrome extension.
+function cmdBtn(c){return `padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;color:#fff;background:${c};-webkit-tap-highlight-color:transparent`}
+function cmdAgo(iso){if(!iso)return'never';const s=Math.round((Date.now()-new Date(iso))/1000);if(s<60)return s+'s ago';const m=Math.round(s/60);if(m<60)return m+'m ago';return Math.round(m/60)+'h ago'}
+function onlineHTML(){
+  if(!ordersKey())return `<div style="max-width:720px;margin:48px auto;text-align:center;color:var(--text-dim)"><h2 style="color:var(--text)">🛰️ Online — Otter Bridge</h2><p>Set your Control Tower token first (Dashboard → the Online Orders card). The bridge uses that same token.</p></div>`;
+  return `
+  <div style="max-width:920px;margin:0 auto;padding:4px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+      <h2 style="margin:0;font-size:24px;font-weight:800">🛰️ Online — Otter Bridge</h2>
+      <span id="exec-status" style="font-size:13px;color:var(--text-dim)">checking…</span>
+    </div>
+    <p style="color:var(--text-dim);font-size:14px;margin:0 0 16px;line-height:1.4">Send a command to the Otter tab on your always-on Mac. It runs there and reports back — no Chrome extension involved.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <button onclick="pushCmd('ping')" style="${cmdBtn('#3b82f6')}">📡 Ping Otter</button>
+      <button onclick="pushCmd('inspect',{selector:'body',depth:3})" style="${cmdBtn('#8b5cf6')}">🔍 Inspect page</button>
+      <input id="cmd-find" type="text" placeholder="find text on the page…" style="flex:1;min-width:170px;padding:11px 13px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:10px;font-size:15px" onkeydown="if(event.key==='Enter'){pushCmd('find',{text:this.value})}">
+      <button onclick="pushCmd('find',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#10b981')}">Find</button>
+    </div>
+    <div id="cmd-feed"><div style="color:var(--text-dim);padding:20px;text-align:center">Loading…</div></div>
+  </div>`;
+}
+function pushCmd(action,args,target){
+  const k=ordersKey();if(!k){alert('Set your Control Tower token on the Dashboard first.');return}
+  let u=CMD_API+'/push?key='+encodeURIComponent(k)+'&action='+encodeURIComponent(action);
+  if(args)u+='&args='+encodeURIComponent(JSON.stringify(args));
+  if(target)u+='&target='+encodeURIComponent(target);
+  fetch(u).then(r=>r.json()).then(()=>setTimeout(refreshCmdConsole,400)).catch(()=>{});
+}
+function loadCmdConsole(){
+  if(cmdConsoleTimer)clearInterval(cmdConsoleTimer);
+  refreshCmdConsole();
+  cmdConsoleTimer=setInterval(()=>{if(activeTab===ONLINE){refreshCmdConsole()}else{clearInterval(cmdConsoleTimer);cmdConsoleTimer=null}},3000);
+}
+async function refreshCmdConsole(){
+  const k=ordersKey();if(!k)return;
+  try{const r=await fetch(CMD_API+'/list?key='+encodeURIComponent(k));if(!r.ok)return;const d=await r.json();renderCmdConsole(d)}catch(e){}
+}
+function renderCmdConsole(d){
+  const st=document.getElementById('exec-status');
+  if(st){const seen=d.executorSeenAt;const live=seen&&(Date.now()-new Date(seen))<15000;st.innerHTML=`<span style="color:${live?'#22c55e':'#ef4444'};font-size:11px">●</span> Otter tab ${live?'connected':'not detected'} · ${cmdAgo(seen)}`}
+  const feed=document.getElementById('cmd-feed');if(!feed)return;
+  const rows=[...(d.pending||[]).map(c=>Object.assign({_p:1},c)),...(d.log||[])].slice(0,20);
+  if(!rows.length){feed.innerHTML='<div style="color:var(--text-dim);padding:24px;text-align:center">No commands yet — tap <b>Ping Otter</b> to test the link.</div>';return}
+  const colors={done:'#22c55e',error:'#ef4444',timeout:'#f59e0b','no-tab':'#f59e0b',running:'#3b82f6',pending:'#94a3b8'};
+  feed.innerHTML=rows.map(c=>{
+    const status=c.status||(c._p?'pending':'');const color=colors[status]||'#94a3b8';
+    const res=(c.result!=null)?`<pre style="margin:8px 0 0;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:300px;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(c.result,null,2))}</pre>`:'';
+    return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-weight:800;font-size:15px">${esc(c.action||'?')}</span>
+        ${c.target?`<span style="font-size:11px;color:var(--text-dim)">→ ${esc(c.target)}</span>`:''}
+        <span style="margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.4px;color:${color};text-transform:uppercase">${esc(status)}</span>
+      </div>${res}</div>`;
+  }).join('');
+}
 // ── CATERING ORDERS ───────────────────────────────────────────────
 const CATERING_ORDERS_API='https://order.angeliscatering.com/api/orders';
 let cateringOrders=null;          // fetched order list (null = not loaded yet)

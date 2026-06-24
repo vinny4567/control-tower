@@ -871,9 +871,9 @@ function renderCmdConsole(d){
   const rows=[...(d.pending||[]).map(c=>Object.assign({_p:1},c)),...(d.log||[])].slice(0,20);
   if(!rows.length){feed.innerHTML='<div style="color:var(--text-dim);padding:24px;text-align:center">No commands yet — tap <b>Ping Otter</b> to test the link.</div>';return}
   const colors={done:'#22c55e',error:'#ef4444',timeout:'#f59e0b','no-tab':'#f59e0b',running:'#3b82f6',pending:'#94a3b8'};
-  feed.innerHTML=rows.map(c=>{
-    const status=c.status||(c._p?'pending':'');const color=colors[status]||'#94a3b8';
-    const res=(c.result!=null)?`<pre style="margin:8px 0 0;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:300px;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(c.result,null,2))}</pre>`:'';
+  feed.innerHTML=rows.map((c,i)=>{
+    const status=c.status||(c._p?'pending':'');const color=colors[status]||'#94a3b8';const resId='cmdres'+i;
+    const res=(c.result!=null)?`<div style="position:relative;margin-top:8px"><button onclick="copyCmdRes('${resId}',this)" style="position:absolute;top:7px;right:7px;padding:5px 11px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;z-index:2">Copy</button><pre id="${resId}" style="margin:0;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:300px;font-size:12px;line-height:1.45;white-space:pre-wrap;word-break:break-word">${esc(JSON.stringify(c.result,null,2))}</pre></div>`:'';
     return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--surface)">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-weight:800;font-size:15px">${esc(c.action||'?')}</span>
@@ -881,6 +881,17 @@ function renderCmdConsole(d){
         <span style="margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.4px;color:${color};text-transform:uppercase">${esc(status)}</span>
       </div>${res}</div>`;
   }).join('');
+}
+function copyCmdRes(id,btn){
+  const el=document.getElementById(id);if(!el)return;
+  const txt=el.textContent||'';
+  const done=()=>{const o=btn.textContent;btn.textContent='✓ Copied';btn.style.background='var(--accent2)';btn.style.color='#06351a';setTimeout(()=>{btn.textContent=o;btn.style.background='var(--surface2)';btn.style.color='var(--text)'},1300)};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopyRes(el,done))}
+  else{fallbackCopyRes(el,done)}
+}
+function fallbackCopyRes(el,done){
+  const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);
+  try{document.execCommand('copy');done()}catch(e){}
 }
 // ── CATERING ORDERS ───────────────────────────────────────────────
 const CATERING_ORDERS_API='https://order.angeliscatering.com/api/orders';

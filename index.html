@@ -845,6 +845,15 @@ function onlineHTML(){
       <button onclick="pushCmd('find',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#10b981')}">Find</button>
       <button onclick="pushCmd('scan',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#f59e0b')}">🔬 Scan</button>
     </div>
+    <div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;background:var(--surface)">
+      <div style="font-weight:800;font-size:15px;margin-bottom:4px">🚫 86 an item</div>
+      <div style="color:var(--text-dim);font-size:12px;margin-bottom:10px;line-height:1.4">Marks it <b>Unavailable today</b> in Otter (auto-reverts at end of day). For now, test with an item currently visible in your Otter list — this makes a <b>real</b> change, so use <b>Make available</b> to flip it back.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <input id="item86" type="text" placeholder="item name…" style="flex:1;min-width:180px;padding:11px 13px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:10px;font-size:15px" onkeydown="if(event.key==='Enter')set86('today')">
+        <button onclick="set86('today')" style="${cmdBtn('#ef4444')}">86 (today)</button>
+        <button onclick="set86('available')" style="${cmdBtn('#22c55e')}">Make available</button>
+      </div>
+    </div>
     <div id="cmd-feed"><div style="color:var(--text-dim);padding:20px;text-align:center">Loading…</div></div>
   </div>`;
 }
@@ -854,6 +863,11 @@ function pushCmd(action,args,target){
   if(args)u+='&args='+encodeURIComponent(JSON.stringify(args));
   if(target)u+='&target='+encodeURIComponent(target);
   fetch(u).then(r=>r.json()).then(()=>setTimeout(refreshCmdConsole,400)).catch(()=>{});
+}
+function set86(state){
+  const el=document.getElementById('item86');const item=(el&&el.value||'').trim();
+  if(!item){alert('Type an item name first.');return}
+  pushCmd('availability',{item,state},'/menus');
 }
 function loadCmdConsole(){
   if(cmdConsoleTimer)clearInterval(cmdConsoleTimer);

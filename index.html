@@ -821,7 +821,7 @@ function renderCompose(){
 }
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
-function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+`<div class="tab ${activeTab===ONLINE?'active':''}" onclick="switchTab('${ONLINE}')">🛰️ Online</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
+function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab ${activeTab===ONLINE?'active':''}" onclick="switchTab('${ONLINE}')">🤖 Jarvis</div>`+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===ONLINE){document.getElementById('viewport').innerHTML=onlineHTML();loadCmdConsole();return}if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
 
 // ── ONLINE TAB: Otter command bridge ───────────────────────────────
@@ -830,20 +830,12 @@ function renderViewport(){if(activeTab===ONLINE){document.getElementById('viewpo
 function cmdBtn(c){return `padding:11px 16px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;color:#fff;background:${c};-webkit-tap-highlight-color:transparent`}
 function cmdAgo(iso){if(!iso)return'never';const s=Math.round((Date.now()-new Date(iso))/1000);if(s<60)return s+'s ago';const m=Math.round(s/60);if(m<60)return m+'m ago';return Math.round(m/60)+'h ago'}
 function onlineHTML(){
-  if(!ordersKey())return `<div style="max-width:720px;margin:48px auto;text-align:center;color:var(--text-dim)"><h2 style="color:var(--text)">🛰️ Online — Otter Bridge</h2><p style="margin-bottom:18px;line-height:1.5">This device needs your access token — the same <b>ORDERS_TOKEN</b> you set in Render (the one already connecting your orders feed on the Mac &amp; iPad).</p><button onclick="setOrdersKey();renderViewport()" style="${cmdBtn('#6c63ff')}">🔑 Connect this device</button></div>`;
+  if(!ordersKey())return `<div style="max-width:720px;margin:48px auto;text-align:center;color:var(--text-dim)"><h2 style="color:var(--text)">🤖 Jarvis</h2><p style="margin-bottom:18px;line-height:1.5">This device needs your access token — the same <b>ORDERS_TOKEN</b> you set in Render (the one already connecting your orders feed on the Mac &amp; iPad).</p><button onclick="setOrdersKey();renderViewport()" style="${cmdBtn('#6c63ff')}">🔑 Connect this device</button></div>`;
   return `
   <div style="max-width:920px;margin:0 auto;padding:4px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px">
-      <h2 style="margin:0;font-size:24px;font-weight:800">🛰️ Online — Otter Bridge</h2>
+      <h2 style="margin:0;font-size:24px;font-weight:800">🤖 Jarvis</h2>
       <span id="exec-status" style="font-size:13px;color:var(--text-dim)">checking…</span>
-    </div>
-    <p style="color:var(--text-dim);font-size:14px;margin:0 0 16px;line-height:1.4">Send a command to the Otter tab on your always-on Mac. It runs there and reports back — no Chrome extension involved.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-      <button onclick="pushCmd('ping')" style="${cmdBtn('#3b82f6')}">📡 Ping Otter</button>
-      <button onclick="pushCmd('inspect',{selector:'body',depth:3})" style="${cmdBtn('#8b5cf6')}">🔍 Inspect page</button>
-      <input id="cmd-find" type="text" placeholder="find text on the page…" style="flex:1;min-width:170px;padding:11px 13px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:10px;font-size:15px" onkeydown="if(event.key==='Enter'){pushCmd('find',{text:this.value})}">
-      <button onclick="pushCmd('find',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#10b981')}">Find</button>
-      <button onclick="pushCmd('scan',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#f59e0b')}">🔬 Scan</button>
     </div>
     <div style="border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;background:var(--surface)">
       <div style="font-weight:800;font-size:15px;margin-bottom:4px">🚫 86 an item</div>
@@ -854,7 +846,17 @@ function onlineHTML(){
         <button onclick="set86('available')" style="${cmdBtn('#22c55e')}">Make available</button>
       </div>
     </div>
-    <div id="cmd-feed"><div style="color:var(--text-dim);padding:20px;text-align:center">Loading…</div></div>
+    <div id="cmd-feed"></div>
+    <details style="margin-top:22px">
+      <summary style="cursor:pointer;color:var(--text-muted);font-size:12px;font-weight:600;-webkit-tap-highlight-color:transparent">⚙ Advanced — bridge tools</summary>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <button onclick="pushCmd('ping')" style="${cmdBtn('#3b82f6')}">📡 Ping</button>
+        <button onclick="pushCmd('inspect',{selector:'body',depth:3})" style="${cmdBtn('#8b5cf6')}">🔍 Inspect</button>
+        <input id="cmd-find" type="text" placeholder="find text…" style="flex:1;min-width:150px;padding:11px 13px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:10px;font-size:15px" onkeydown="if(event.key==='Enter'){pushCmd('find',{text:this.value})}">
+        <button onclick="pushCmd('find',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#10b981')}">Find</button>
+        <button onclick="pushCmd('scan',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#f59e0b')}">🔬 Scan</button>
+      </div>
+    </details>
   </div>`;
 }
 function pushCmd(action,args,target){
@@ -883,7 +885,7 @@ function renderCmdConsole(d){
   if(st){const seen=d.executorSeenAt;const live=seen&&(Date.now()-new Date(seen))<15000;st.innerHTML=`<span style="color:${live?'#22c55e':'#ef4444'};font-size:11px">●</span> Otter tab ${live?'connected':'not detected'} · ${cmdAgo(seen)}`}
   const feed=document.getElementById('cmd-feed');if(!feed)return;
   const rows=[...(d.pending||[]).map(c=>Object.assign({_p:1},c)),...(d.log||[])].slice(0,20);
-  if(!rows.length){feed.innerHTML='<div style="color:var(--text-dim);padding:24px;text-align:center">No commands yet — tap <b>Ping Otter</b> to test the link.</div>';return}
+  if(!rows.length){feed.innerHTML='<div style="color:var(--text-dim);padding:24px;text-align:center">Results from your 86 / restore actions show here.</div>';return}
   const colors={done:'#22c55e',error:'#ef4444',timeout:'#f59e0b','no-tab':'#f59e0b',running:'#3b82f6',pending:'#94a3b8'};
   feed.innerHTML=rows.map((c,i)=>{
     const status=c.status||(c._p?'pending':'');const color=colors[status]||'#94a3b8';const resId='cmdres'+i;

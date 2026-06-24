@@ -843,6 +843,7 @@ function onlineHTML(){
       <button onclick="pushCmd('inspect',{selector:'body',depth:3})" style="${cmdBtn('#8b5cf6')}">🔍 Inspect page</button>
       <input id="cmd-find" type="text" placeholder="find text on the page…" style="flex:1;min-width:170px;padding:11px 13px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:10px;font-size:15px" onkeydown="if(event.key==='Enter'){pushCmd('find',{text:this.value})}">
       <button onclick="pushCmd('find',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#10b981')}">Find</button>
+      <button onclick="pushCmd('scan',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#f59e0b')}">🔬 Scan</button>
     </div>
     <div id="cmd-feed"><div style="color:var(--text-dim);padding:20px;text-align:center">Loading…</div></div>
   </div>`;

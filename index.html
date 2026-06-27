@@ -860,6 +860,7 @@ function onlineHTML(){
           <input id="cmd-find" type="text" placeholder="find…" style="flex:1;min-width:110px;padding:9px 11px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:9px;font-size:14px">
           <button onclick="pushCmd('find',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#10b981')}">Find</button>
           <button onclick="pushCmd('scan',{text:(document.getElementById('cmd-find')||{}).value||''})" style="${cmdBtn('#f59e0b')}">🔬 Scan</button>
+          <button onclick="pushCmd('peekorders',{},'/orders')" style="${cmdBtn('#ec4899')}">🔎 Peek orders</button>
         </div>
       </div>
     </details>`:''}

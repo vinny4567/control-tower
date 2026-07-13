@@ -529,13 +529,13 @@ function decodeB64(s){try{return atob((s||'').replace(/-/g,'+').replace(/_/g,'/'
 function extractBody(msg){const h=findPart(msg.payload,'text/html');if(h)return decodeB64(h.body.data);const t=findPart(msg.payload,'text/plain');if(t){const text=decodeB64(t.body.data);return '<pre style="white-space:pre-wrap;font-family:-apple-system,sans-serif;font-size:14px;color:#222;padding:18px;margin:0">'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'}return '<div style="padding:24px;color:#c4cdda;font-family:-apple-system,sans-serif">(no content)</div>'}
 // Reservation Confirmation emails come in with a label/value table. Strip the labels and
 // render just the values in a big clean card so you can read it at a glance.
-function transformReservationEmail(htmlBody, subject){
-  if(!htmlBody)return htmlBody;
-  if(!subject||!subject.toLowerCase().includes('reservation confirmation'))return htmlBody;
+// Extract structured reservation fields from a Ninja-Forms-style HTML body.
+// Returns {fullName,email,phone,date,time,guests,seating,notes} or null if parsing fails.
+function parseReservationFields(htmlBody){
+  if(!htmlBody)return null;
   let doc;
-  try{doc=new DOMParser().parseFromString(htmlBody,'text/html')}catch(e){return htmlBody}
+  try{doc=new DOMParser().parseFromString(htmlBody,'text/html')}catch(e){return null}
   const fields={};
-  // Pull label/value pairs from adjacent table cells
   const tds=Array.from(doc.querySelectorAll('td'));
   for(let i=0;i<tds.length-1;i++){
     const rawLabel=tds[i].textContent.trim();
@@ -544,7 +544,6 @@ function transformReservationEmail(htmlBody, subject){
     const value=tds[i+1].textContent.trim();
     if(label&&value)fields[label]=value;
   }
-  // Fallback: parse plain-text "Label: Value" lines
   if(Object.keys(fields).length<2){
     const lines=(doc.body?doc.body.textContent:'').split(/\n+/);
     lines.forEach(line=>{
@@ -556,16 +555,25 @@ function transformReservationEmail(htmlBody, subject){
     });
   }
   const get=(...keys)=>{for(const k of keys){for(const fk of Object.keys(fields)){if(fk.includes(k))return fields[fk]}}return ''};
-  const firstName=get('first name');
-  const lastName=get('last name');
-  const fullName=[firstName,lastName].filter(Boolean).join(' ')||get('name');
-  const email=get('email');
-  const phone=get('phone');
-  const date=get('reservation date','date');
-  const time=get('time');
-  const guests=get('guest count','guests','party');
-  const seating=get('preferred seating','seating');
-  const notes=get('notes','comments','special requests','requests','message','additional info','additional notes','anything else');
+  const firstName=get('first name'),lastName=get('last name');
+  return {
+    firstName, lastName,
+    fullName:[firstName,lastName].filter(Boolean).join(' ')||get('name'),
+    email:get('email'),
+    phone:get('phone'),
+    date:get('reservation date','date'),
+    time:get('time'),
+    guests:get('guest count','guests','party'),
+    seating:get('preferred seating','seating'),
+    notes:get('notes','comments','special requests','requests','message','additional info','additional notes','anything else')
+  };
+}
+function transformReservationEmail(htmlBody, subject){
+  if(!htmlBody)return htmlBody;
+  if(!subject||!subject.toLowerCase().includes('reservation confirmation'))return htmlBody;
+  const f=parseReservationFields(htmlBody);
+  if(!f)return htmlBody;
+  const {fullName,phone,date,time,guests,seating,notes}=f;
   // If we couldn't find at least a name and a date, fall back to original
   if(!fullName||(!date&&!time))return htmlBody;
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -814,9 +822,17 @@ function renderCompose(){
     ? `<div style="display:flex;align-items:center;gap:4px">To:<input id="compose-reply-to" type="email" value="${esc(suggestedTo)}" style="${inputStyle}">${hint}</div>`
     : `<div style="display:flex;align-items:center;gap:4px">To:<input id="compose-fwd-to" type="email" placeholder="recipient@example.com" style="${inputStyle}"></div>`;
   const status=gmailTab.sendStatus?`<span class="gmail-compose-status ${gmailTab.sendStatus.kind}">${esc(gmailTab.sendStatus.text)}</span>`:'<span></span>';
-  // Reservation Confirmation emails get auto-filled with "Confirmed." so you can just tap Send
+  // Reservation Confirmation replies auto-fill with the customer's date + time so you can just tap Send
   const isReservation=(e.subject||'').toLowerCase().includes('reservation confirmation');
-  const prefill=(isReply&&isReservation)?'Confirmed.':'';
+  let prefill='';
+  if(isReply&&isReservation){
+    const f=parseReservationFields(e.body||'');
+    const d=f&&f.date, t=f&&f.time;
+    if(d&&t)prefill=`All set for ${d} at ${t}, Thank You!`;
+    else if(d)prefill=`All set for ${d}, Thank You!`;
+    else if(t)prefill=`All set for ${t}, Thank You!`;
+    else prefill='All set, Thank You!';
+  }
   return `<div class="gmail-compose"><div class="gmail-compose-to">${toLine}</div><textarea id="compose-textarea" placeholder="${isReply?'Type your reply…':'Add a message before the forwarded content…'}">${esc(prefill)}</textarea><div class="gmail-compose-bar">${status}<div style="display:flex;gap:8px"><button class="gmail-action-btn secondary" onclick="cancelCompose()">Cancel</button><button class="gmail-action-btn" onclick="sendCompose()">${isReply?'Send Reply':'Forward'}</button></div></div></div>`;
 }
 // Unregister any stale service workers

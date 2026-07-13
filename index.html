@@ -487,8 +487,8 @@ function startGmailPolling(){
 // When app returns to foreground (iOS suspends timers when backgrounded), force a fresh check
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden)return;
-  // If token expired while we were away, silently refresh first
-  if(gmailToken&&!gmailValid()){
+  // If token expired (or was never loaded) but backend still has our refresh token, silently refresh
+  if(!gmailValid()&&gmailConnected!==false){
     gmailSilentRefresh();
     return;
   }
@@ -756,7 +756,15 @@ async function sendCompose(){
 }
 function closeEmail(){gmailTab.selectedId=null;gmailTab.selectedEmail=null;if(activeTab===3)renderViewport()}
 function gmailMailboxHTML(){
-  if(!gmailValid()){return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`}
+  if(!gmailValid()){
+    // If the backend has our refresh token (gmailConnected!==false), silently refresh instead of forcing sign-in.
+    // Only show the "Sign in with Google" button when we KNOW the backend has no refresh token.
+    if(gmailConnected!==false){
+      setTimeout(gmailSilentRefresh,0);
+      return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connecting…</h2><p>Restoring your Gmail session.</p></div></div>`;
+    }
+    return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`;
+  }
   const wide=window.innerWidth>=900;
   // Single-pane mode (narrow screens / portrait) — old behavior
   if(!wide){
@@ -1133,6 +1141,9 @@ function renderAll(){renderTabs();renderViewport()}
 function switchTab(id){
   activeTab=id;cfg.activeTab=id;saveCfg();renderAll();
   if(id===DASH){loadCateringOrders();loadLiveOrders();}
+  // If we don't have a valid access token but the backend has our refresh token, refresh silently.
+  // This prevents the "Sign in with Google" prompt from ever appearing on tab switch.
+  if(!gmailValid()&&gmailConnected!==false&&(id===3||id===DASH)){gmailSilentRefresh();}
   if(gmailValid()){
     if(id===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
     if(id===DASH)fetchGmail();

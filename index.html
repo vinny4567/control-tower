@@ -462,12 +462,57 @@ async function gmailPoll(){
     const hasNew=apiIds.some(id=>!knownIds.has(id));
     if(hasNew){
       fetchGmail();
-      if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab();
+      // Refresh the Reservations list IN PLACE — safe to run while an email is open or a reply is being typed.
+      // The old code required !gmailTab.selectedEmail, so a selected email froze the list. Not anymore.
+      if(activeTab===3)refreshGmailListInPlace();
     }
     // Update sync indicator if visible
     const indicator=document.querySelector('.gmail-live');
     if(indicator)indicator.setAttribute('title',`Last sync: ${new Date(gmailLastSyncAt).toLocaleTimeString()}`);
   }catch(e){console.error('gmail poll',e)}
+}
+// Refresh gmailTab.emails and update ONLY the list-pane DOM — don't touch the detail
+// pane, compose textarea, or selected email. Safe to run during active use.
+async function refreshGmailListInPlace(){
+  if(!gmailValid()||gmailTab.loading)return;
+  gmailTab.loading=true;
+  try{
+    const auth={Authorization:'Bearer '+gmailToken.token};
+    const listRes=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&labelIds=INBOX',{headers:auth});
+    if(!listRes.ok){gmailTab.loading=false;return}
+    const list=await listRes.json();
+    const msgs=list.messages||[];
+    const results=await Promise.all(msgs.map(async m=>{
+      const r=await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,{headers:auth});
+      if(!r.ok)return null;
+      const msg=await r.json();
+      const hdr={};(msg.payload?.headers||[]).forEach(h=>hdr[h.name]=h.value);
+      return {id:m.id,threadId:m.threadId,sender:parseSender(hdr.From||'(unknown)'),from:hdr.From||'',subject:hdr.Subject||'(no subject)',date:hdr.Date||'',snippet:msg.snippet||'',time:relTime(parseInt(msg.internalDate)),unread:msg.labelIds?.includes('UNREAD')||false,starred:msg.labelIds?.includes('STARRED')||false}
+    }));
+    gmailTab.emails=results.filter(Boolean);
+  }catch(e){console.error('gmail list refresh',e)}
+  gmailTab.loading=false;
+  updateGmailListPaneDOM();
+  renderTabs(); // refresh unread badge on the Reservations tab
+}
+// Swap only the list-pane HTML in the DOM. Detail pane + compose stay intact.
+function updateGmailListPaneDOM(){
+  if(activeTab!==3)return;
+  const listPane=document.querySelector('.gmail-list-pane');
+  if(listPane){
+    // Split-view: only replace list pane
+    listPane.innerHTML=gmailListHTML(true);
+    return;
+  }
+  // Single-pane mode: only refresh if list is visible (no email open); don't disturb a reading user
+  if(!gmailTab.selectedEmail){
+    const listTab=document.querySelector('.gmail-list-tab');
+    const toolbar=document.querySelector('.gmail-mailbox .gmail-toolbar');
+    if(listTab&&toolbar){
+      const mailbox=document.querySelector('.gmail-mailbox');
+      if(mailbox)mailbox.innerHTML=gmailListHTML(false);
+    }
+  }
 }
 function startGmailPolling(){
   if(gmailPollTimer)return;
@@ -845,7 +890,7 @@ function renderCompose(){
 }
 // Unregister any stale service workers
 if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));}
-function renderTabs(){const list=document.getElementById('tab-list');list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}</div>`).join('')+`<div class="tab ${activeTab===ONLINE?'active':''}" onclick="switchTab('${ONLINE}')">🤖 Jarvis</div>`+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
+function renderTabs(){const list=document.getElementById('tab-list');const unread=(gmailTab.emails||[]).filter(e=>e.unread).length;const badge=n=>n?` <span style="display:inline-block;background:var(--accent);color:#fff;padding:1px 8px;border-radius:10px;font-size:11px;margin-left:6px;font-weight:800;vertical-align:middle">${n}</span>`:'';list.innerHTML=`<div class="tab ${activeTab===DASH?'active':''}" onclick="switchTab('${DASH}')">📊 Dashboard</div>`+cfg.panels.map(p=>`<div class="tab ${activeTab===p.id?'active':''}" onclick="switchTab(${p.id})">${esc(p.name)}${p.id===3?badge(unread):''}</div>`).join('')+`<div class="tab ${activeTab===ONLINE?'active':''}" onclick="switchTab('${ONLINE}')">🤖 Jarvis</div>`+`<div class="tab tab-add" onclick="openSettings()" title="Add panel">＋</div>`}
 function renderViewport(){if(activeTab===ONLINE){document.getElementById('viewport').innerHTML=onlineHTML();renderChat();if(ordersKey())loadCmdConsole();return}if(activeTab===DASH){document.getElementById('viewport').innerHTML=dashboardHTML();return}const p=cfg.panels.find(x=>x.id===activeTab);if(!p){document.getElementById('viewport').innerHTML='';return}document.getElementById('viewport').innerHTML=bodyHTML(p);if(activeTab===3)restoreGmailListScroll()}
 
 // ── ONLINE TAB: Otter command bridge ───────────────────────────────

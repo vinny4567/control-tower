@@ -811,7 +811,7 @@ function gmailMailboxHTML(){
     // Only show the "Sign in with Google" button when we KNOW the backend has no refresh token.
     if(gmailConnected!==false){
       setTimeout(gmailSilentRefresh,0);
-      return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connecting…</h2><p>Restoring your Gmail session.</p></div></div>`;
+      return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connecting…</h2><p>Restoring your Gmail session.</p><p style="margin-top:14px;font-size:12px;opacity:.65">Stuck here? <a href="#" onclick="setGmailKey();return false" style="color:inherit;text-decoration:underline">Paste the access key</a></p></div></div>`;
     }
     return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button><p style="margin-top:14px;font-size:12px;opacity:.65">Set up on a new device? <a href="#" onclick="setGmailKey();return false" style="color:inherit;text-decoration:underline">Paste the access key</a></p></div></div>`;
   }

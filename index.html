@@ -364,7 +364,8 @@ window.addEventListener('message',function(e){
 // (no Google cookies in the browser, so Safari's cookie clearing can't break it).
 const GMAIL_TOKEN_ENDPOINT='https://restaurant-scheduler-hh5e.onrender.com/api/gmail/token';
 const GMAIL_AUTH_ENDPOINT='https://restaurant-scheduler-hh5e.onrender.com/api/gmail/auth';
-const GMAIL_BACKEND_KEY='tipout-roster-key-vinny-7k9m2x4p';
+const GMAIL_BACKEND_KEY=()=>{try{return localStorage.getItem('ct_gmail_key')||''}catch(e){return ''}};
+function setGmailKey(){const k=prompt('Paste the Gmail backend key (same value as the scheduler key in Render):');if(k&&k.trim()){try{localStorage.setItem('ct_gmail_key',k.trim())}catch(e){}gmailConnected=null;initGmail()}}
 let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token_v4')||'null')}catch(e){}
 let gmailUserEmail=null;
 let gmailEmails=null,gmailLoading=false;
@@ -379,7 +380,11 @@ async function gmailRefreshFromBackend(){
   if(gmailRefreshing)return gmailValid();
   gmailRefreshing=true;
   try{
-    const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(GMAIL_BACKEND_KEY));
+    const _gk=GMAIL_BACKEND_KEY();
+      // No key on this device yet. Fail the same soft way a rejected key does — the tab
+      // shows "connect" rather than throwing, and setGmailKey() fixes it in one prompt.
+      if(!_gk){gmailConnected=false;return false}
+      const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(_gk));
     if(r.status===404){gmailConnected=false;gmailClearToken();return false}
     if(!r.ok)return gmailValid();
     const data=await r.json();
@@ -808,7 +813,7 @@ function gmailMailboxHTML(){
       setTimeout(gmailSilentRefresh,0);
       return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connecting…</h2><p>Restoring your Gmail session.</p></div></div>`;
     }
-    return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`;
+    return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button><p style="margin-top:14px;font-size:12px;opacity:.65">Set up on a new device? <a href="#" onclick="setGmailKey();return false" style="color:inherit;text-decoration:underline">Paste the access key</a></p></div></div>`;
   }
   const wide=window.innerWidth>=900;
   // Single-pane mode (narrow screens / portrait) — old behavior

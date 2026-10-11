@@ -107,6 +107,14 @@
     .gmail-back:hover{background:var(--surface2)}
     .gmail-refresh{background:transparent;border:1px solid var(--border);width:42px;height:42px;border-radius:10px;cursor:pointer;color:var(--text-dim);font-size:20px;display:flex;align-items:center;justify-content:center}
     .gmail-refresh:hover{background:var(--surface2);color:var(--text)}
+    .gmail-searchbar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+    .gmail-search-ico{font-size:14px;opacity:.55;flex-shrink:0}
+    .gmail-search-input{flex:1;height:38px;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:0 12px;color:var(--text);font-size:14px;outline:none;-webkit-appearance:none;appearance:none}
+    .gmail-search-input::placeholder{color:var(--text-muted)}
+    .gmail-search-input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+    .gmail-search-input:focus{border-color:var(--accent)}
+    .gmail-search-clear{flex-shrink:0;width:34px;height:34px;border:none;background:transparent;color:var(--text-muted);font-size:22px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+    .gmail-search-clear:hover{background:var(--surface2);color:var(--text)}
     .gmail-list-tab{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     .gmail-row{padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}
     .gmail-row:hover{background:var(--surface)}
@@ -187,6 +195,9 @@
     .gmail-user{font-size:12px;color:var(--text-muted);padding:4px 10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
     .gmail-live{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);margin-left:8px;font-weight:500}
     .gmail-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:livepulse 1.6s ease-in-out infinite}
+    .gmail-search{flex:0 1 260px;min-width:120px;height:34px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:13px;outline:none;-webkit-appearance:none;appearance:none}
+    .gmail-search:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(108,99,255,.18)}
+    .gmail-search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:16px;height:16px;background:var(--text-dim);mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M18.3 5.71L12 12.01l-6.29-6.3L4.29 7.12 10.59 13.42l-6.3 6.29 1.41 1.42L12 14.83l6.3 6.3 1.41-1.42-6.29-6.29 6.29-6.3z'/></svg>") center/contain no-repeat;-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M18.3 5.71L12 12.01l-6.29-6.3L4.29 7.12 10.59 13.42l-6.3 6.29 1.41 1.42L12 14.83l6.3 6.3 1.41-1.42-6.29-6.29 6.29-6.3z'/></svg>") center/contain no-repeat;cursor:pointer}
     @keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.85)}}
     .panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;min-width:0;min-height:0}
     .panel.is-fullscreen{position:fixed;top:var(--header-h);left:0;right:0;bottom:env(safe-area-inset-bottom,0);z-index:50}
@@ -498,20 +509,20 @@ async function refreshGmailListInPlace(){
 // Swap only the list-pane HTML in the DOM. Detail pane + compose stay intact.
 function updateGmailListPaneDOM(){
   if(activeTab!==3)return;
-  const listPane=document.querySelector('.gmail-list-pane');
-  if(listPane){
-    // Split-view: only replace list pane
-    listPane.innerHTML=gmailListHTML(true);
+  // Fast path: if the toolbar (and therefore the search input) already exists in the
+  // DOM, update ONLY the row list + unread count. The search input is preserved as-is,
+  // so cursor focus and the current query are never lost mid-type.
+  if(document.getElementById('gmail-list-rows')){
+    renderGmailListRows();
+    updateGmailListCount();
     return;
   }
-  // Single-pane mode: only refresh if list is visible (no email open); don't disturb a reading user
+  // Cold path (first paint): nothing to preserve, so build the whole pane.
+  const listPane=document.querySelector('.gmail-list-pane');
+  if(listPane){listPane.innerHTML=gmailListHTML(true);return}
   if(!gmailTab.selectedEmail){
-    const listTab=document.querySelector('.gmail-list-tab');
-    const toolbar=document.querySelector('.gmail-mailbox .gmail-toolbar');
-    if(listTab&&toolbar){
-      const mailbox=document.querySelector('.gmail-mailbox');
-      if(mailbox)mailbox.innerHTML=gmailListHTML(false);
-    }
+    const mailbox=document.querySelector('.gmail-mailbox');
+    if(mailbox)mailbox.innerHTML=gmailListHTML(false);
   }
 }
 function startGmailPolling(){
@@ -547,6 +558,53 @@ window.addEventListener('load',()=>initGmail());
 
 // ── GMAIL MAILBOX TAB ─────────────────────────────────────────────
 let gmailTab={emails:null,loading:false,selectedId:null,selectedEmail:null,loadingDetail:false,composing:null,sendStatus:null};
+// In-memory inbox filter (NOT persisted — clears on reload, per intended behavior).
+// Applied by renderGmailListRows() every time the row DOM is rebuilt (including every
+// 3s auto-refresh), so the live sync keeps working while a filter is active.
+let gmailFilter='';
+function _gmailMatches(e,q){
+  if(!q)return true;
+  q=q.toLowerCase();
+  return (e.sender||'').toLowerCase().includes(q)
+    ||(e.from||'').toLowerCase().includes(q)
+    ||(e.subject||'').toLowerCase().includes(q)
+    ||(e.snippet||'').toLowerCase().includes(q);
+}
+function _gmailRowHTML(e,forTwoPane){
+  return `<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="unread-badge">New</span>':''}${esc(e.sender)}</div><div class="gmail-row-time"><button class="gmail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar (mark as not responded)':'Star (mark as responded)'}">${e.starred?'★':'☆'}</button>${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`;
+}
+// Called by the search input's oninput — updates ONLY the row list, never the toolbar
+// (so the input element itself is never replaced and keeps keyboard focus).
+function setGmailFilter(q){
+  gmailFilter=q||'';
+  renderGmailListRows();
+  updateGmailListCount();
+}
+function renderGmailListRows(){
+  const host=document.getElementById('gmail-list-rows');
+  if(!host)return;
+  const forTwoPane=!!document.querySelector('.gmail-list-pane');
+  const list=(gmailTab.emails||[]).filter(e=>_gmailMatches(e,gmailFilter));
+  if(!list.length){
+    host.innerHTML=`<div class="gmail-empty">${gmailFilter?`No matches for "${esc(gmailFilter)}".`:'No emails in inbox.'}</div>`;
+    return;
+  }
+  host.innerHTML=list.map(e=>_gmailRowHTML(e,forTwoPane)).join('');
+}
+function updateGmailListCount(){
+  const el=document.getElementById('gmail-unread-count');
+  if(!el)return;
+  const unread=(gmailTab.emails||[]).filter(e=>e.unread).length;
+  const total=(gmailTab.emails||[]).length;
+  const matching=(gmailTab.emails||[]).filter(e=>_gmailMatches(e,gmailFilter)).length;
+  if(gmailFilter){
+    el.innerHTML=` · <span style="color:var(--text-dim)">${matching} of ${total}</span>`;
+  }else if(unread){
+    el.innerHTML=` · <span style="color:var(--accent)">${unread} new</span>`;
+  }else{
+    el.innerHTML='';
+  }
+}
 // Listen for height reports from email body iframes — auto-grow each iframe to fit its content
 window.addEventListener('message',function(e){
   if(!e.data||e.data._ct!=='h'||!e.data.id||!e.data.h)return;
@@ -825,11 +883,17 @@ function gmailMailboxHTML(){
 }
 function gmailListHTML(forTwoPane){
   if(gmailTab.emails===null)return `<div class="gmail-toolbar"><span class="gmail-title">Inbox</span></div><div class="gmail-loading">Loading inbox…</div>`;
-  if(gmailTab.emails.length===0)return `<div class="gmail-toolbar"><span class="gmail-title">Inbox</span><button class="gmail-refresh" onclick="loadGmailTab()">⟳</button></div><div class="gmail-empty">No emails in inbox.</div>`;
-  const unread=gmailTab.emails.filter(e=>e.unread).length;
   const user=gmailUserEmail?`<span class="gmail-user" title="${esc(gmailUserEmail)}">${esc(gmailUserEmail)}</span>`:'';
-  const rows=gmailTab.emails.map(e=>`<div class="gmail-row ${e.unread?'unread':''} ${forTwoPane&&gmailTab.selectedId===e.id?'selected':''}" onclick="selectEmail('${e.id}')"><div class="gmail-row-top"><div class="gmail-row-sender">${e.unread?'<span class="unread-badge">New</span>':''}${esc(e.sender)}</div><div class="gmail-row-time"><button class="gmail-star ${e.starred?'starred':''}" onclick="toggleStar('${e.id}',event)" title="${e.starred?'Unstar (mark as not responded)':'Star (mark as responded)'}">${e.starred?'★':'☆'}</button>${e.time}</div></div><div class="gmail-row-subject">${esc(e.subject)}</div><div class="gmail-row-snippet">${esc(e.snippet)}</div></div>`).join('');
-  return `<div class="gmail-toolbar"><span class="gmail-title">Inbox${unread?` · <span style="color:var(--accent)">${unread} new</span>`:''}<span class="gmail-live" title="Auto-checks for new mail every 5 seconds">live</span></span>${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div><div class="gmail-list-tab">${rows}</div>`;
+  // Toolbar: title + unread/match count span + live badge + search input + user + refresh.
+  // Important: the count sits in its own <span id="gmail-unread-count"> so the auto-refresh
+  // can update it without replacing the toolbar — otherwise the search input would lose focus.
+  const toolbar=`<div class="gmail-toolbar"><span class="gmail-title">Inbox<span id="gmail-unread-count"></span><span class="gmail-live" title="Auto-checks for new mail every few seconds">live</span></span><input id="gmail-filter" class="gmail-search" type="search" placeholder="Search inbox…" value="${esc(gmailFilter)}" oninput="setGmailFilter(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${user}<button class="gmail-refresh" onclick="loadGmailTab()" title="Refresh">⟳</button></div>`;
+  if(gmailTab.emails.length===0)return `${toolbar}<div class="gmail-empty">No emails in inbox.</div>`;
+  const list=gmailTab.emails.filter(e=>_gmailMatches(e,gmailFilter));
+  const rowsHtml=list.length?list.map(e=>_gmailRowHTML(e,forTwoPane)).join(''):`<div class="gmail-empty">${gmailFilter?`No matches for "${esc(gmailFilter)}".`:'No emails in inbox.'}</div>`;
+  // Defer count update so #gmail-unread-count exists in the DOM when we write to it
+  setTimeout(updateGmailListCount,0);
+  return `${toolbar}<div class="gmail-list-tab" id="gmail-list-rows">${rowsHtml}</div>`;
 }
 function gmailDetailHTML(forSinglePane){
   const e=gmailTab.selectedEmail;if(!e)return '';

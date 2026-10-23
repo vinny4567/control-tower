@@ -367,7 +367,14 @@ window.addEventListener('message',function(e){
 // (no Google cookies in the browser, so Safari's cookie clearing can't break it).
 const GMAIL_TOKEN_ENDPOINT='https://restaurant-scheduler-hh5e.onrender.com/api/gmail/token';
 const GMAIL_AUTH_ENDPOINT='https://restaurant-scheduler-hh5e.onrender.com/api/gmail/auth';
-const GMAIL_BACKEND_KEY='tipout-roster-key-vinny-7k9m2x4p';
+// THIS REPO IS PUBLIC — never hardcode the key here. It used to be a literal on this line, which
+// published it to anyone who viewed source, and it stayed valid until the 10/22/2026 rotation
+// killed it. Read it from localStorage instead: this page and the Watch Tower are both served from
+// vinny4567.github.io, so it is the SAME ORIGIN and `ct_sched_key` is already shared between them
+// (as ct_busy and ct_orders_key always have been). Nothing to paste — a device keyed for the Watch
+// Tower is keyed for this page too. Read at CALL time, not load time, so a key entered next door
+// takes effect without a reload.
+const GMAIL_BACKEND_KEY=()=>{try{return localStorage.getItem('ct_sched_key')||''}catch(e){return ''}};
 let gmailToken=null;try{gmailToken=JSON.parse(localStorage.getItem('gmail_token_v4')||'null')}catch(e){}
 let gmailUserEmail=null;
 let gmailEmails=null,gmailLoading=false;
@@ -382,7 +389,9 @@ async function gmailRefreshFromBackend(){
   if(gmailRefreshing)return gmailValid();
   gmailRefreshing=true;
   try{
-    const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(GMAIL_BACKEND_KEY));
+    const k=GMAIL_BACKEND_KEY();
+    if(!k){gmailConnected=false;return false}   // no key on this device yet — don't 401 in a loop
+    const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(k));
     if(r.status===404){gmailConnected=false;gmailClearToken();return false}
     if(!r.ok)return gmailValid();
     const data=await r.json();

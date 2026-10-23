@@ -402,7 +402,12 @@ async function gmailRefreshFromBackend(){
   try{
     const k=GMAIL_BACKEND_KEY();
     if(!k){gmailConnected=false;return false}   // no key on this device yet — don't 401 in a loop
-    const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(k));
+    // iOS Safari caches plain GETs hard. If this URL ever answered 401 — say, while the device
+    // still held the old key — Safari will keep replaying that 401 for the SAME key forever, so a
+    // correct key looks permanently rejected and no amount of re-entering clears it. The same
+    // behaviour bit the party-availability fetch. Belt and braces: no-store AND a unique URL.
+    const r=await fetch(GMAIL_TOKEN_ENDPOINT+'?key='+encodeURIComponent(k)+'&_='+Date.now(),
+                        {cache:'no-store'});
     if(r.status===404){gmailConnected=false;gmailErr='The server has no Google sign-in stored (404). Use “Sign in with Google”.';gmailClearToken();return false}
     // A REJECTED KEY USED TO RETURN HERE WITHOUT SETTING gmailConnected, so it stayed null and the
     // card spun on “Restoring your Gmail session…” forever with nothing said. Name the failure.

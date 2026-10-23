@@ -380,6 +380,16 @@ let gmailUserEmail=null;
 let gmailEmails=null,gmailLoading=false;
 let gmailConnected=null; // null=unknown, true=connected, false=needs connect
 let gmailErr=null;       // why the last token fetch failed, so the card can SAY it instead of spinning
+let gmailKeyFp=null;     // SHA-256 prefix of the stored key, so two devices can be COMPARED
+// A key can be the right length with the right prefix and still differ by one character — a
+// homoglyph, a zero-width space, a transposition. Length and prefix cannot see that; a hash can.
+// Reveals nothing: it is one-way, and the same command on a trusted copy yields the same 20 chars.
+async function ctKeyFingerprint(k){
+  try{
+    const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(k));
+    return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,20);
+  }catch(e){return null}
+}
 function gmailValid(){return gmailToken&&gmailToken.expires>Date.now()+30000}
 function gmailSaveToken(t){gmailToken=t;try{localStorage.setItem('gmail_token_v4',JSON.stringify(t))}catch(e){}}
 function gmailClearToken(){gmailToken=null;gmailEmails=null;gmailUserEmail=null;try{localStorage.removeItem('gmail_token_v4');localStorage.removeItem('gmail_token_v3');localStorage.removeItem('gmail_token')}catch(e){}}
@@ -397,9 +407,11 @@ async function gmailRefreshFromBackend(){
     // A REJECTED KEY USED TO RETURN HERE WITHOUT SETTING gmailConnected, so it stayed null and the
     // card spun on “Restoring your Gmail session…” forever with nothing said. Name the failure.
     if(!r.ok){gmailConnected=false;gmailErr=(r.status===401
-      ?'That key was rejected (401). It should be the ctsched- Schedule key — not the ctmail- one.'
-      :'The server answered '+r.status+'.');return false}
-    gmailErr=null;
+      ?'That key was rejected (401) by the scheduler.'
+      :'The server answered '+r.status+'.');
+      ctKeyFingerprint(k).then(fp=>{gmailKeyFp=fp;renderViewport()});   // async: repaint when it lands
+      return false}
+    gmailErr=null;gmailKeyFp=null;
     const data=await r.json();
     if(data.access_token){
       gmailSaveToken({token:data.access_token,expires:Date.now()+(data.expires_in||3600)*1000});
@@ -903,7 +915,8 @@ function gmailMailboxHTML(){
       const kk=GMAIL_BACKEND_KEY();
       const pre=kk.slice(0,8), ok=pre==='ctsched-';
       const shape=`Stored on this device: ${kk.length} characters, begins “${esc(pre)}”` +
-        (ok?'':' — that is not “ctsched-”, so it is the wrong key or it was altered on the way in.');
+        (ok?'':' — that is not “ctsched-”, so it is the wrong key or it was altered on the way in.') +
+        (gmailKeyFp?`<br>Fingerprint: <code>${esc(gmailKeyFp)}</code><br>Compare it on a working machine:<br><code>printf '%s' '&lt;key&gt;' | shasum -a 256 | cut -c1-20</code><br>Same 20 characters means this device has the identical key and the fault is elsewhere; different means it arrived altered.`:'');
       return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">⚠️</div><h2>Can't reach your mail</h2><p>${esc(gmailErr)}</p><p style="font-size:12px;opacity:.75">${shape}</p><button class="signin-btn" onclick="ctSetSchedKey()">Re-enter the key</button></div></div>`;
     }
     return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`;

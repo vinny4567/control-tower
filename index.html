@@ -438,7 +438,39 @@ async function initGmail(){
 }
 // Stored under the SAME name the Watch Tower uses, on the same vinny4567.github.io origin, so
 // entering it in either screen keys both. Trimmed because a copied key often carries a space.
+// iPad Safari will not reliably paste into a prompt() dialog — the dialog closes with the ORIGINAL
+// value still in it, so the stored key never changes and every retry looks identical. That is why
+// re-entering it appeared to do nothing. Use a real input instead: paste works, and the field is
+// visible so you can see what actually went in.
 function ctSetSchedKey(){
+  const card=document.querySelector('.gmail-signin-card');
+  if(!card)return ctSetSchedKeyPrompt();
+  card.innerHTML=`<div class="gs-ico">🔑</div><h2>Enter the Schedule key</h2>
+    <p style="font-size:13px">Paste the <code>ctsched-</code> key. The Watch Tower and the Tip-Out calculator use this same key.</p>
+    <input id="ct-key-in" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"
+           placeholder="ctsched-…" style="width:100%;max-width:420px;padding:10px 12px;font:14px ui-monospace,Menlo,monospace;
+           border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin:8px 0">
+    <div id="ct-key-live" style="font-size:12px;opacity:.75;min-height:1.2em;margin-bottom:8px"></div>
+    <button class="signin-btn" onclick="ctSaveSchedKey()">Save key</button>`;
+  const inp=document.getElementById('ct-key-in');
+  inp.addEventListener('input',()=>{
+    const v=ctNormKey(inp.value);
+    document.getElementById('ct-key-live').textContent =
+      v ? `${v.length} characters${v.startsWith('ctsched-')?' · begins ctsched- ✓':' · does not begin ctsched- ✗'}` : '';
+  });
+  inp.focus();
+}
+function ctSaveSchedKey(){
+  const inp=document.getElementById('ct-key-in');if(!inp)return;
+  const v=ctNormKey(inp.value);
+  try{v?localStorage.setItem('ct_sched_key',v):localStorage.removeItem('ct_sched_key')}catch(e){}
+  gmailConnected=null;gmailErr=null;gmailKeyFp=null;location.reload();
+}
+function ctNormKey(k){
+  return (k||'').replace(/[‐-―−]/g,'-').replace(/[‘’“”]/g,'').replace(/\s+/g,'')
+                .replace(/^Ct(sched|sync|mail)-/,'ct$1-');
+}
+function ctSetSchedKeyPrompt(){
   let cur='';try{cur=localStorage.getItem('ct_sched_key')||''}catch(e){}
   const k=prompt('Schedule key — lets this screen reach your mail, weddings and tips.\n(the ctsched- key; the Watch Tower uses the same one)',cur);
   if(k===null)return;                                   // Cancel leaves it alone

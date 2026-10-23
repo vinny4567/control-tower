@@ -425,7 +425,14 @@ function ctSetSchedKey(){
   let cur='';try{cur=localStorage.getItem('ct_sched_key')||''}catch(e){}
   const k=prompt('Schedule key — lets this screen reach your mail, weddings and tips.\n(the ctsched- key; the Watch Tower uses the same one)',cur);
   if(k===null)return;                                   // Cancel leaves it alone
-  try{k.trim()?localStorage.setItem('ct_sched_key',k.trim()):localStorage.removeItem('ct_sched_key')}catch(e){}
+  // iOS mangles pasted/typed keys: smart punctuation turns "-" into an en/em dash, autocapitalise
+  // makes "ctsched-" into "Ctsched-", and a stray space or newline rides along. Any one of those
+  // produces a 401 that looks exactly like "wrong key". Repair them rather than blame the user.
+  const v=k.replace(/[‐-―−]/g,'-')        // en/em/figure dashes + minus sign → hyphen
+           .replace(/[‘’“”]/g,'')    // smart quotes
+           .replace(/\s+/g,'')                           // ALL whitespace, not just the ends
+           .replace(/^Ct(sched|sync|mail)-/,'ct$1-');    // autocapitalised first letter
+  try{v?localStorage.setItem('ct_sched_key',v):localStorage.removeItem('ct_sched_key')}catch(e){}
   gmailConnected=null;location.reload();
 }
 function gmailSignIn(){
@@ -889,8 +896,16 @@ function gmailMailboxHTML(){
     // sign-in succeeds, the key is still absent, and the inbox still won't load. Ask for the key.
     if(!GMAIL_BACKEND_KEY())
       return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">🔑</div><h2>No access key on this device</h2><p>This screen needs the Schedule key before it can reach your mail. It is shared with the Watch Tower — enter it once here and both use it.</p><button class="signin-btn" onclick="ctSetSchedKey()">Enter the key</button></div></div>`;
-    if(gmailErr)
-      return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">⚠️</div><h2>Can't reach your mail</h2><p>${esc?esc(gmailErr):gmailErr}</p><button class="signin-btn" onclick="ctSetSchedKey()">Re-enter the key</button></div></div>`;
+    if(gmailErr){
+      // Show the SHAPE of what is stored — length and prefix only, never the secret part. A key
+      // that "looks right" but 401s is almost always mangled, and this makes the mangling visible
+      // instead of leaving you to argue with the screen about whether you typed it correctly.
+      const kk=GMAIL_BACKEND_KEY();
+      const pre=kk.slice(0,8), ok=pre==='ctsched-';
+      const shape=`Stored on this device: ${kk.length} characters, begins “${esc(pre)}”` +
+        (ok?'':' — that is not “ctsched-”, so it is the wrong key or it was altered on the way in.');
+      return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">⚠️</div><h2>Can't reach your mail</h2><p>${esc(gmailErr)}</p><p style="font-size:12px;opacity:.75">${shape}</p><button class="signin-btn" onclick="ctSetSchedKey()">Re-enter the key</button></div></div>`;
+    }
     return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`;
   }
   const wide=window.innerWidth>=900;

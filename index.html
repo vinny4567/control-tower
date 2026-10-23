@@ -411,6 +411,15 @@ async function initGmail(){
   if(ok){fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling()}
   renderViewport();
 }
+// Stored under the SAME name the Watch Tower uses, on the same vinny4567.github.io origin, so
+// entering it in either screen keys both. Trimmed because a copied key often carries a space.
+function ctSetSchedKey(){
+  let cur='';try{cur=localStorage.getItem('ct_sched_key')||''}catch(e){}
+  const k=prompt('Schedule key — lets this screen reach your mail, weddings and tips.\n(the ctsched- key; the Watch Tower uses the same one)',cur);
+  if(k===null)return;                                   // Cancel leaves it alone
+  try{k.trim()?localStorage.setItem('ct_sched_key',k.trim()):localStorage.removeItem('ct_sched_key')}catch(e){}
+  gmailConnected=null;location.reload();
+}
 function gmailSignIn(){
   // Open the server-side OAuth flow; poll the backend until the refresh token lands
   window.open(GMAIL_AUTH_ENDPOINT,'_blank');
@@ -867,6 +876,11 @@ function gmailMailboxHTML(){
       setTimeout(gmailSilentRefresh,0);
       return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connecting…</h2><p>Restoring your Gmail session.</p></div></div>`;
     }
+    // A MISSING ACCESS KEY IS NOT A MISSING GOOGLE SIGN-IN — say which one is wrong.
+    // Offering "Sign in with Google" here sends you round an OAuth loop that cannot fix it: the
+    // sign-in succeeds, the key is still absent, and the inbox still won't load. Ask for the key.
+    if(!GMAIL_BACKEND_KEY())
+      return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">🔑</div><h2>No access key on this device</h2><p>This screen needs the Schedule key before it can reach your mail. It is shared with the Watch Tower — enter it once here and both use it.</p><button class="signin-btn" onclick="ctSetSchedKey()">Enter the key</button></div></div>`;
     return `<div class="gmail-signin"><div class="gmail-signin-card"><div class="gs-ico">📧</div><h2>Connect Gmail</h2><p>Sign in once to read your inbox and reply to emails inside Control Tower.</p><button class="signin-btn" onclick="gmailSignIn()">Sign in with Google</button></div></div>`;
   }
   const wide=window.innerWidth>=900;

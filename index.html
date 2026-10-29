@@ -466,23 +466,61 @@ function ctSaveSchedKey(){
   try{v?localStorage.setItem('ct_sched_key',v):localStorage.removeItem('ct_sched_key')}catch(e){}
   gmailConnected=null;gmailErr=null;gmailKeyFp=null;location.reload();
 }
+// ⚠️ ZERO-WIDTH CHARACTERS SURVIVE \s. JS treats NBSP as whitespace but NOT the
+// zero-width space/joiners or a BOM, so a key copied out of a chat app or a PDF can carry
+// one and look absolutely perfect: right prefix, and a length that is off by one in a
+// field where nobody counts. The live readout would then vouch for a key the scheduler
+// rejects, and every retry looks identical — the same shape as the iPad paste bug this
+// screen already carries a warning about, and the same one that made a CRM address "wrong
+// and look perfect" (control-tower-2 b668bb1).
 function ctNormKey(k){
-  return (k||'').replace(/[‐-―−]/g,'-').replace(/[‘’“”]/g,'').replace(/\s+/g,'')
+  return (k||'').replace(/[\u200B-\u200D\uFEFF\u2060]/g,'')   // zero-width space/joiners, BOM, word-joiner
+                .replace(/[‐-―−]/g,'-').replace(/[‘’“”]/g,'').replace(/\s+/g,'')
                 .replace(/^Ct(sched|sync|mail)-/,'ct$1-');
 }
+// ⛔ THIS USED TO BE A prompt(). It was the fallback for when the sign-in card is not on
+// screen — and the host stand is an iPad, where prompt() SILENTLY DISCARDS A PASTE and
+// hands back the original value. That is the bug that cost four rounds of "I'm putting it
+// in exactly" during the 10/22 rotation, and the comment four lines above this one
+// already warns about it. Leaving it as the fallback meant the documented trap was still
+// one missing element away on every screen.
+//
+// Same real input as the card path, in an overlay that does not need the card to exist.
 function ctSetSchedKeyPrompt(){
+  if(document.getElementById('ct-key-ov'))return;
   let cur='';try{cur=localStorage.getItem('ct_sched_key')||''}catch(e){}
-  const k=prompt('Schedule key — lets this screen reach your mail, weddings and tips.\n(the ctsched- key; the Watch Tower uses the same one)',cur);
-  if(k===null)return;                                   // Cancel leaves it alone
-  // iOS mangles pasted/typed keys: smart punctuation turns "-" into an en/em dash, autocapitalise
-  // makes "ctsched-" into "Ctsched-", and a stray space or newline rides along. Any one of those
-  // produces a 401 that looks exactly like "wrong key". Repair them rather than blame the user.
-  const v=k.replace(/[‐-―−]/g,'-')        // en/em/figure dashes + minus sign → hyphen
-           .replace(/[‘’“”]/g,'')    // smart quotes
-           .replace(/\s+/g,'')                           // ALL whitespace, not just the ends
-           .replace(/^Ct(sched|sync|mail)-/,'ct$1-');    // autocapitalised first letter
-  try{v?localStorage.setItem('ct_sched_key',v):localStorage.removeItem('ct_sched_key')}catch(e){}
-  gmailConnected=null;location.reload();
+  const ov=document.createElement('div');
+  ov.id='ct-key-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.innerHTML=`<div style="background:var(--card,#15161a);border:1px solid var(--border,#333);border-radius:14px;padding:20px;max-width:460px;width:100%;color:var(--text,#eee);font-family:inherit">
+    <div style="font-size:26px">🔑</div>
+    <h2 style="margin:6px 0 2px;font-size:18px">Enter the Schedule key</h2>
+    <p style="font-size:13px;opacity:.8;margin:0 0 10px">Paste the <code>ctsched-</code> key. The Watch Tower and the Tip-Out calculator use this same one.</p>
+    <input id="ct-key-ovin" type="text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"
+      placeholder="ctsched-…" style="width:100%;padding:10px 12px;font:14px ui-monospace,Menlo,monospace;border-radius:8px;
+      border:1px solid var(--border,#333);background:var(--bg,#0d0e11);color:var(--text,#eee);margin-bottom:6px">
+    <div id="ct-key-ovlive" style="font-size:12px;opacity:.75;min-height:1.2em;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="ct-key-ovx" style="background:none;border:1px solid var(--border,#333);color:var(--text,#eee);border-radius:8px;padding:8px 14px;font-family:inherit;cursor:pointer">Cancel</button>
+      <button id="ct-key-ovok" style="background:#f5b301;border:none;color:#140f02;border-radius:8px;padding:8px 16px;font-weight:700;font-family:inherit;cursor:pointer">Save key</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const inp=document.getElementById('ct-key-ovin');
+  const live=document.getElementById('ct-key-ovlive');
+  inp.value=cur;
+  // The same live readout as the card: length and prefix, so a key that LOOKS right but
+  // carries a zero-width character or a smart dash is visible before it is saved.
+  const paint=()=>{const v=ctNormKey(inp.value);
+    live.textContent=v?`${v.length} characters${v.startsWith('ctsched-')?' · begins ctsched- ✓':' · does not begin ctsched- ✗'}`:'';};
+  inp.addEventListener('input',paint);paint();
+  document.getElementById('ct-key-ovx').onclick=()=>ov.remove();
+  document.getElementById('ct-key-ovok').onclick=()=>{
+    const v=ctNormKey(inp.value);
+    try{v?localStorage.setItem('ct_sched_key',v):localStorage.removeItem('ct_sched_key')}catch(e){}
+    gmailConnected=null;gmailErr=null;gmailKeyFp=null;location.reload();
+  };
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('ct-key-ovok').click()});
+  setTimeout(()=>inp.focus(),30);
 }
 function gmailSignIn(){
   // Open the server-side OAuth flow; poll the backend until the refresh token lands

@@ -421,16 +421,49 @@ async function gmailRefreshFromBackend(){
     if(data.access_token){
       gmailSaveToken({token:data.access_token,expires:Date.now()+(data.expires_in||3600)*1000});
       gmailConnected=true;
+      gmailNetTries=0;gmailNetFailed=false;
       return true;
     }
-  }catch(e){console.error('gmail token fetch',e)}
+  }catch(e){
+    // ⚠️ THIS IS WHY IT SPINS FOREVER. The !r.ok path was fixed to name a refusal, but a
+    // THROWN fetch — no network, wifi dropped, DNS, TLS, or the scheduler asleep on
+    // Render's free tier and taking longer than the browser will wait — fell through here
+    // setting nothing. gmailConnected stayed `null`, which means "unknown", and the card
+    // renders "Connecting… / Restoring your Gmail session." for that state. Forever, with
+    // nothing said. Vinny, 10/30, on the host stand: "I keep getting this."
+    console.error('gmail token fetch',e);
+    gmailConnected=false;
+    gmailErr='Could not reach the scheduler (' + ((e&&e.message)||'network error') + '). '
+            +(gmailNetTries<GMAIL_NET_MAX?'Trying again…':'Tap Retry, or check this screen is on the internet.');
+    gmailNetFailed=true;
+  }
   finally{gmailRefreshing=false}
   return gmailValid();
+}
+// A HOST STAND IS NOT BABYSAT. The scheduler sleeps on Render's free tier and its first
+// request after a quiet spell can take the better part of a minute or simply fail — so the
+// single most likely reason this screen is unreachable is also the one that fixes itself
+// in thirty seconds. Giving up after one attempt means somebody finds a dead tab hours
+// later; retrying a few times with backoff means they never knew.
+let gmailNetTries=0, gmailNetFailed=false;
+const GMAIL_NET_MAX=4;
+function gmailNetRetry(){
+  if(!gmailNetFailed)return;
+  if(gmailNetTries>=GMAIL_NET_MAX)return;
+  const wait=[3000,8000,20000,45000][gmailNetTries]||45000;
+  gmailNetTries++;
+  setTimeout(()=>{
+    if(!gmailNetFailed)return;
+    gmailRefreshFromBackend().then(ok=>{
+      if(ok){gmailNetTries=0;gmailNetFailed=false;gmailErr=null;renderViewport();}
+      else{renderViewport();gmailNetRetry();}
+    });
+  },wait);
 }
 // Alias for existing call sites (poll, visibility handler) — refreshes then updates UI
 // Re-render on FAILURE too — otherwise a refused key leaves the “Connecting…” card on screen
 // forever, because the old version only repainted on success.
-function gmailSilentRefresh(){gmailRefreshFromBackend().then(ok=>{if(ok){fetchGmailProfile();if(activeTab===DASH)fetchGmail();if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab()}else{renderViewport()}})}
+function gmailSilentRefresh(){gmailRefreshFromBackend().then(ok=>{if(ok){fetchGmailProfile();if(activeTab===DASH)fetchGmail();if(activeTab===3&&!gmailTab.selectedEmail&&!gmailTab.loading)loadGmailTab()}else{renderViewport();gmailNetRetry()}})}
 async function initGmail(){
   const ok=await gmailRefreshFromBackend();
   if(ok){fetchGmailProfile();fetchGmail();if(activeTab===3)loadGmailTab();startGmailPolling()}
